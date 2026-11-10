@@ -21,7 +21,7 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 PROFILE = """
 Candidate profile:
