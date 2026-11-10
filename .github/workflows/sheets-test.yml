@@ -1,0 +1,77 @@
+
+name: Test Google Sheets Connection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test-sheets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          project_id: ai-academic-job-agent
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install gspread google-auth
+
+      - name: Test spreadsheet write access
+        env:
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import google.auth
+          import gspread
+          from datetime import datetime, timezone
+
+          scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+          credentials, _ = google.auth.default(scopes=scopes)
+          client = gspread.authorize(credentials)
+
+          spreadsheet = client.open_by_key(os.environ["SPREADSHEET_ID"])
+          worksheet = spreadsheet.worksheet("Academic Jobs")
+
+          worksheet.append_row([
+              "CONNECTION-TEST",
+              "Google Sheets Connection Test",
+              "AI Academic Job Agent",
+              "Pakistan",
+              "Sahiwal",
+              "Computer Science",
+              "Test",
+              "MPhil Computer Science",
+              "Not applicable",
+              "Not applicable",
+              "Not applicable",
+              "Test only",
+              "",
+              "",
+              "Not evaluated",
+              "Not evaluated",
+              "Successful",
+              datetime.now(timezone.utc).isoformat(),
+              datetime.now(timezone.utc).isoformat(),
+              "Test row. Safe to delete after verification."
+          ])
+
+          print("SUCCESS: Google Sheets write access confirmed.")
+          print("Spreadsheet:", spreadsheet.title)
+          print("Worksheet:", worksheet.title)
+          PY
