@@ -23,4 +23,6 @@ Instead of spending dozens of hours manually searching forums and job boards, th
 * **🤖 Smart Filtering:** Analyzes job descriptions and criteria to match your specific CS sub-field and interests.
 * **⚡ Continuous Tracking:** Monitors portals in real-time so you get updated on new postings immediately.
 
+
+**Ghias Ul Din Bulbun**
 ---
