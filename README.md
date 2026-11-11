@@ -24,5 +24,5 @@ Instead of spending dozens of hours manually searching forums and job boards, th
 * **⚡ Continuous Tracking:** Monitors portals in real-time so you get updated on new postings immediately.
 
 
-**Ghias Ul Din Bulbun**
+AI-Academic-Career-Agent is developed by **Ghias Ul Din Bulbun**
 ---
