@@ -1,2 +1,3 @@
-# AI-Academic-Career-Agent
-AI-Academic-Career-Agent is an intelligent AI-powered research and career assistant designed to automatically discover, analyze, and track the latest Computer Science academic job opportunities and fully funded PhD scholarships worldwide.  The agent searches reputable university websites, academic job portals, scholarship platforms.
+Struggling to keep up with funded PhD openings and CS faculty positions? Meet AI-Academic-Career-Agent 🤖🎓
+
+Your personal AI scout for academic growth. Designed specifically for Computer Science researchers and students, this intelligent agent scours top university websites, scholarship platforms, and academic job portals globally to find fully funded PhD programs and research roles matching your profile. Save time, skip the manual digging, and never miss a life-changing opportunity again.
