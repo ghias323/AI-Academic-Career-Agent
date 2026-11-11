@@ -3,6 +3,7 @@ import re
 import json
 import hashlib
 import logging
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -20,10 +21,14 @@ TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
-# Four records per Gemini request: fewer API calls than one-by-one analysis.
+# Free-tier controls: four API attempts maximum per workflow run.
 BATCH_SIZE = 4
-MAX_RESULTS_PER_QUERY = 6
-MAX_CONTENT_CHARS = 3500
+MAX_GEMINI_ATTEMPTS_PER_RUN = 4
+MAX_RESULTS_PER_QUERY = 5
+MAX_CONTENT_CHARS = 2200
+RETRY_503_ONCE = True
+RETRY_DELAY_SECONDS = 3
+PENDING_QUEUE_SHEET = "Pending Queue"
 
 PROFILE = """
 Candidate profile:
@@ -268,71 +273,99 @@ INPUT SEARCH RESULTS:
 """
 
 
+GEMINI_ATTEMPTS_USED = 0
+GEMINI_QUOTA_EXHAUSTED = False
+GEMINI_BUDGET_EXHAUSTED = False
+
+
+def error_status(error):
+    for attr in ("code", "status_code", "status"):
+        value = getattr(error, attr, None)
+        if value is not None:
+            value = str(value).upper()
+            if value.isdigit():
+                return int(value)
+            if "RESOURCE_EXHAUSTED" in value:
+                return 429
+            if "UNAVAILABLE" in value:
+                return 503
+    message = str(error).lower()
+    if "429" in message or "resource_exhausted" in message or "quota exceeded" in message:
+        return 429
+    if "503" in message or "unavailable" in message:
+        return 503
+    return None
+
+
 def analyse_batch(items, category):
-    if not items:
-        return {}
+    global GEMINI_ATTEMPTS_USED, GEMINI_QUOTA_EXHAUSTED
+    global GEMINI_BUDGET_EXHAUSTED
 
-    logging.info(
-        "Gemini batch started: category=%s, records=%d",
-        category, len(items)
-    )
+    if not items or GEMINI_QUOTA_EXHAUSTED or GEMINI_BUDGET_EXHAUSTED:
+        return None
 
-    try:
-        response = gemini.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=build_batch_prompt(items, category),
-            config={
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-            },
-        )
-        payload = extract_json(response.text)
-        output = {}
+    retries_remaining = 1 if RETRY_503_ONCE else 0
+    while True:
+        if GEMINI_ATTEMPTS_USED >= MAX_GEMINI_ATTEMPTS_PER_RUN:
+            GEMINI_BUDGET_EXHAUSTED = True
+            logging.warning("Gemini request budget exhausted; pending items preserved")
+            return None
 
-        for result in payload.get("results", []):
-            try:
-                index = int(result["index"])
-                data = result["data"]
-                if 0 <= index < len(items) and isinstance(data, dict):
-                    output[index] = data
-            except (KeyError, TypeError, ValueError):
-                logging.warning("Ignoring malformed Gemini batch item")
-
+        GEMINI_ATTEMPTS_USED += 1
         logging.info(
-            "Gemini batch completed: %d of %d records returned",
-            len(output), len(items)
+            "Gemini request %d/%d: category=%s, records=%d",
+            GEMINI_ATTEMPTS_USED, MAX_GEMINI_ATTEMPTS_PER_RUN,
+            category, len(items)
         )
-        return output
-
-    except Exception as error:
-        # A failed batch is logged; the next batch/category can still run.
-        logging.error(
-            "Gemini batch failed (%s, %d records): %s",
-            category, len(items), error
-        )
-        return {}
+        try:
+            response = gemini.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=build_batch_prompt(items, category),
+                config={"temperature": 0.1, "response_mime_type": "application/json"},
+            )
+            payload = extract_json(response.text)
+            output = {}
+            for result in payload.get("results", []):
+                try:
+                    index = int(result["index"])
+                    data = result["data"]
+                    if 0 <= index < len(items) and isinstance(data, dict):
+                        output[index] = data
+                except (KeyError, TypeError, ValueError):
+                    logging.warning("Ignoring malformed Gemini batch item")
+            logging.info("Gemini returned %d/%d records", len(output), len(items))
+            return output
+        except Exception as error:
+            status = error_status(error)
+            logging.error("Gemini failed: status=%s; %s", status or "unknown", error)
+            if status == 429:
+                GEMINI_QUOTA_EXHAUSTED = True
+                logging.error("Daily quota exhausted; stopping all Gemini calls")
+                return None
+            if status == 503 and retries_remaining:
+                retries_remaining -= 1
+                if GEMINI_ATTEMPTS_USED < MAX_GEMINI_ATTEMPTS_PER_RUN:
+                    logging.warning("Retrying temporary 503 once after %ss",
+                                    RETRY_DELAY_SECONDS)
+                    time.sleep(RETRY_DELAY_SECONDS)
+                    continue
+            return None
 
 
 def analyse_in_batches(items, category):
     all_results = {}
     total_batches = (len(items) + BATCH_SIZE - 1) // BATCH_SIZE
-
-    for batch_no, start in enumerate(
-        range(0, len(items), BATCH_SIZE), start=1
-    ):
+    for batch_no, start in enumerate(range(0, len(items), BATCH_SIZE), start=1):
+        if GEMINI_QUOTA_EXHAUSTED or GEMINI_BUDGET_EXHAUSTED:
+            break
         batch = items[start:start + BATCH_SIZE]
-        logging.info(
-            "%s analysis batch %d/%d",
-            category, batch_no, total_batches
-        )
+        logging.info("%s batch %d/%d", category, batch_no, total_batches)
         result = analyse_batch(batch, category)
+        if result is None:
+            break
         for local_index, data in result.items():
             all_results[start + local_index] = data
-
-    logging.info(
-        "%s analysis complete: %d/%d results analysed",
-        category, len(all_results), len(items)
-    )
+    logging.info("%s analysed %d/%d", category, len(all_results), len(items))
     return all_results
 
 
@@ -402,6 +435,9 @@ def eligibility_notes(data):
         "Missing requirements / checks: " +
         clean(data.get("missing_requirements")),
         "Recommended action: " + clean(data.get("recommended_action")),
+        "Eligibility classification: " + normalize_eligibility(
+            data.get("eligibility_status")
+        ),
     ]
 
     positions = data.get("position_assessments")
@@ -554,33 +590,189 @@ def save_scholarship(worksheet, data, known_ids):
 
 
 # ============================================================
-# PROCESS CATEGORY
+# PERSISTENT PENDING QUEUE
 # ============================================================
 
-def process_category(results, category, worksheet, known_ids):
-    analyses = analyse_in_batches(results, category)
-    saved = 0
+QUEUE_HEADERS = ["Queue ID", "Category", "Title", "URL", "Content", "Queued At"]
 
-    for index, item in enumerate(results):
-        data = analyses.get(index)
-        if not data:
-            logging.warning(
-                "No analysis returned for %s: %s",
-                category, item.get("title")
-            )
-            continue
 
-        record = prepare_record(data, item["url"])
-        if category == "job":
-            saved += int(save_job(worksheet, record, known_ids))
-        else:
-            saved += int(save_scholarship(worksheet, record, known_ids))
+def get_queue_sheet(spreadsheet):
+    try:
+        sheet = spreadsheet.worksheet(PENDING_QUEUE_SHEET)
+    except gspread.WorksheetNotFound:
+        sheet = spreadsheet.add_worksheet(
+            title=PENDING_QUEUE_SHEET, rows=1000, cols=len(QUEUE_HEADERS)
+        )
+        sheet.append_row(QUEUE_HEADERS, value_input_option="RAW")
+    values = sheet.get_all_values()
+    if not values:
+        sheet.append_row(QUEUE_HEADERS, value_input_option="RAW")
+    elif values[0][:len(QUEUE_HEADERS)] != QUEUE_HEADERS:
+        raise RuntimeError(
+            f"'{PENDING_QUEUE_SHEET}' has unexpected headers. "
+            "Rename it or correct its first row; queue data was not changed."
+        )
+    return sheet
 
-    logging.info(
-        "%s summary: discovered=%d, analysed=%d, newly saved=%d",
-        category, len(results), len(analyses), saved
-    )
-    return saved
+
+def load_pending_queue(sheet):
+    queue = []
+    for row in sheet.get_all_records():
+        url = str(row.get("URL", "")).strip()
+        category = str(row.get("Category", "")).strip().lower()
+        if url and category in ("job", "scholarship"):
+            queue.append({
+                "category": category,
+                "title": str(row.get("Title", "")),
+                "url": url,
+                "content": str(row.get("Content", "")),
+                "record_id": make_record_id(url),
+            })
+    return queue
+
+
+def save_pending_queue(sheet, queue):
+    rows = [QUEUE_HEADERS]
+    now = datetime.now(timezone.utc).isoformat()
+    for item in queue:
+        rows.append([
+            make_record_id(item["url"]), item["category"],
+            item.get("title", ""), item["url"],
+            item.get("content", "")[:MAX_CONTENT_CHARS],
+            item.get("queued_at", now),
+        ])
+    sheet.clear()
+    sheet.update(values=rows, range_name="A1", value_input_option="RAW")
+    logging.info("Pending Queue contains %d opportunities", len(queue))
+
+
+def priority_score(item):
+    text_value = (item.get("title", "") + " " + item.get("content", "")).lower()
+    score = 20 if item["category"] == "scholarship" else 10
+    if item["category"] == "scholarship":
+        if "fully funded" in text_value or "full funding" in text_value:
+            score += 15
+        if "phd" in text_value or "doctoral" in text_value:
+            score += 10
+    else:
+        if "lecturer" in text_value:
+            score += 15
+        if "assistant professor" in text_value:
+            score += 12
+    if any(term in text_value for term in
+           ("computer science", "computing", "software engineering",
+            "artificial intelligence", "deep learning", "nlp")):
+        score += 8
+    return score
+
+
+def merge_into_queue(queue, discovered, category):
+    known_urls = {item["url"] for item in queue}
+    now = datetime.now(timezone.utc).isoformat()
+    added = 0
+    for item in discovered:
+        if item["url"] not in known_urls:
+            queued = dict(item)
+            queued.update({"category": category, "queued_at": now})
+            queue.append(queued)
+            known_urls.add(item["url"])
+            added += 1
+    logging.info("%s added to queue: %d", category, added)
+    return queue
+
+
+def build_sheet_row(category, record):
+    if category == "job":
+        return [
+            record["record_id"], clean(record.get("job_title")),
+            clean(record.get("organization")), clean(record.get("country")),
+            clean(record.get("city")), clean(record.get("department")),
+            clean(record.get("position_type")),
+            clean(record.get("required_qualification")),
+            clean(record.get("experience_required")), clean(record.get("age_limit")),
+            clean(record.get("salary")), clean(record.get("deadline")),
+            clean(record.get("application_url")), record["source_url"],
+            record["eligibility_status"], clean(record.get("age_relaxation")),
+            clean(record.get("verification_status")), record["date_found"],
+            record["last_checked"], eligibility_notes(record),
+        ]
+    return [
+        record["record_id"], clean(record.get("scholarship_name")),
+        clean(record.get("university")), clean(record.get("country")),
+        clean(record.get("degree_level")), clean(record.get("research_area")),
+        clean(record.get("funding_type")), clean(record.get("tuition_coverage")),
+        clean(record.get("monthly_stipend")), clean(record.get("ielts_requirement")),
+        clean(record.get("age_limit")), record["eligibility_status"],
+        clean(record.get("deadline")), clean(record.get("application_url")),
+        record["source_url"], clean(record.get("verification_status")),
+        record["date_found"], record["last_checked"], eligibility_notes(record),
+    ]
+
+
+def record_is_saveable(category, record):
+    if category == "job":
+        return True
+    degree = clean(record.get("degree_level")).lower()
+    if "phd" not in degree and "doctor" not in degree:
+        logging.info("Scholarship skipped: not clearly a PhD opportunity")
+        return False
+    if not funding_is_confirmed(record):
+        logging.info(
+            "Scholarship not saved: full tuition and stipend are not both "
+            "confirmed in the supplied evidence: %s",
+            record.get("scholarship_name")
+        )
+        return False
+    return True
+
+
+def process_pending_queue(queue, jobs_sheet, scholarships_sheet,
+                          known_job_ids, known_scholarship_ids):
+    global GEMINI_QUOTA_EXHAUSTED, GEMINI_BUDGET_EXHAUSTED
+    saved_jobs = 0
+    saved_scholarships = 0
+    completed_urls = set()
+
+    queue.sort(key=priority_score, reverse=True)
+    for category in ("scholarship", "job"):
+        items = [item for item in queue if item["category"] == category]
+        for start in range(0, len(items), BATCH_SIZE):
+            if GEMINI_QUOTA_EXHAUSTED or GEMINI_BUDGET_EXHAUSTED:
+                break
+            batch = items[start:start + BATCH_SIZE]
+            analyses = analyse_batch(batch, category)
+            if analyses is None:
+                break
+
+            for index, data in analyses.items():
+                item = batch[index]
+                record = prepare_record(data, item["url"])
+                if not record:
+                    continue
+                if category == "job":
+                    if record["record_id"] not in known_job_ids:
+                        jobs_sheet.append_row(
+                            build_sheet_row(category, record),
+                            value_input_option="USER_ENTERED"
+                        )
+                        known_job_ids.add(record["record_id"])
+                        saved_jobs += 1
+                        logging.info("Saved academic job: %s",
+                                     record.get("job_title"))
+                elif record_is_saveable(category, record):
+                    if record["record_id"] not in known_scholarship_ids:
+                        scholarships_sheet.append_row(
+                            build_sheet_row(category, record),
+                            value_input_option="USER_ENTERED"
+                        )
+                        known_scholarship_ids.add(record["record_id"])
+                        saved_scholarships += 1
+                # Successfully analysed items leave the queue, even if they
+                # were irrelevant or failed the strict scholarship funding rule.
+                completed_urls.add(item["url"])
+
+    remaining = [item for item in queue if item["url"] not in completed_urls]
+    return remaining, saved_jobs, saved_scholarships
 
 
 # ============================================================
@@ -588,42 +780,54 @@ def process_category(results, category, worksheet, known_ids):
 # ============================================================
 
 def run_agent():
+    global GEMINI_ATTEMPTS_USED, GEMINI_QUOTA_EXHAUSTED
+    global GEMINI_BUDGET_EXHAUSTED
+    GEMINI_ATTEMPTS_USED = 0
+    GEMINI_QUOTA_EXHAUSTED = False
+    GEMINI_BUDGET_EXHAUSTED = False
+
     logging.info("=" * 60)
     logging.info("AI ACADEMIC CAREER AGENT STARTED")
     logging.info(
-        "Model=%s | batch_size=%d | search_depth=basic",
-        GEMINI_MODEL, BATCH_SIZE
+        "Model=%s | batch_size=%d | max Gemini attempts/run=%d",
+        GEMINI_MODEL, BATCH_SIZE, MAX_GEMINI_ATTEMPTS_PER_RUN
     )
     logging.info("=" * 60)
 
     jobs_sheet, scholarships_sheet = connect_sheets()
+    queue_sheet = get_queue_sheet(jobs_sheet.spreadsheet)
 
     known_job_ids = read_existing_ids(jobs_sheet, "Job ID")
     known_scholarship_ids = read_existing_ids(
         scholarships_sheet, "Scholarship ID"
     )
+    queue = load_pending_queue(queue_sheet)
+    logging.info("Loaded %d previously pending opportunities", len(queue))
 
-    # Discover both categories first. Existing URLs are skipped before
-    # any Gemini call, saving time and API usage.
-    job_results = collect_search_results(
-        JOB_QUERIES, known_job_ids, "Academic jobs"
-    )
+    # Persist discoveries before Gemini analysis, so quota failures do not
+    # lose any newly found results.
+    job_results = collect_search_results(JOB_QUERIES, known_job_ids, "Academic jobs")
     scholarship_results = collect_search_results(
         SCHOLARSHIP_QUERIES, known_scholarship_ids, "Scholarships"
     )
+    queue = merge_into_queue(queue, job_results, "job")
+    queue = merge_into_queue(queue, scholarship_results, "scholarship")
+    save_pending_queue(queue_sheet, queue)
 
-    new_jobs = process_category(
-        job_results, "job", jobs_sheet, known_job_ids
+    remaining, new_jobs, new_scholarships = process_pending_queue(
+        queue, jobs_sheet, scholarships_sheet,
+        known_job_ids, known_scholarship_ids
     )
-    new_scholarships = process_category(
-        scholarship_results, "scholarship",
-        scholarships_sheet, known_scholarship_ids
-    )
+    save_pending_queue(queue_sheet, remaining)
 
     logging.info("=" * 60)
     logging.info("AI ACADEMIC CAREER AGENT COMPLETED")
     logging.info("New academic jobs saved this run: %d", new_jobs)
     logging.info("New scholarships saved this run: %d", new_scholarships)
+    logging.info("Pending opportunities carried forward: %d", len(remaining))
+    logging.info("Gemini API attempts: %d/%d",
+                 GEMINI_ATTEMPTS_USED, MAX_GEMINI_ATTEMPTS_PER_RUN)
+    logging.info("Daily quota exhausted: %s", GEMINI_QUOTA_EXHAUSTED)
     logging.info("Total academic jobs tracked: %d", len(known_job_ids))
     logging.info("Total scholarships tracked: %d", len(known_scholarship_ids))
     logging.info("=" * 60)
