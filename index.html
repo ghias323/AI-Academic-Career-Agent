@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Academic Opportunity Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+  </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+
+  <!-- ENTIRE FROZEN TOP AREA (Header + KPI Cards + Tabs & Filters) -->
+  <div class="shrink-0 z-30 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    
+    <!-- Top Gradient Accent Strip -->
+    <div class="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-blue-500 to-emerald-400"></div>
+
+    <!-- Top Brand & Sync Bar -->
+    <header class="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white font-extrabold shadow-md shadow-indigo-500/20">
+            AI
+          </div>
+          <div>
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+              Academic Opportunity Hub
+            </h1>
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span id="syncStatus">Loaded 65 cached records • Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+          <label class="hidden lg:flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 cursor-pointer select-none bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg">
+            <input type="checkbox" id="autoRefreshToggle" checked class="rounded text-indigo-600 focus:ring-indigo-500">
+            Auto-sync (60s)
+          </label>
+
+          <!-- Upload .XLSX Fallback Button -->
+          <label title="Import updated Excel/CSV file offline"
+            class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            <span class="hidden sm:inline">Import .XLSX</span>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(event)" />
+          </label>
+
+          <!-- Dark Mode Button -->
+          <button onclick="toggleDarkMode()" title="Toggle Dark Mode"
+            class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            <svg id="sunIcon" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            <svg id="moonIcon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          </button>
+
+          <!-- Refresh Button -->
+          <button onclick="loadAllSheets(true)" id="syncBtn"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[0.99] transition shadow-sm shadow-indigo-500/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Sync Now
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Frozen KPI Cards + Tabs & Filters Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3.5">
+      
+      <!-- 4 KPI Cards Grid -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Academic Jobs</p>
+            <span class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </span>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between gap-2">
+            <p id="kpiJobs" class="text-2xl font-extrabold">20</p>
+            <span id="kpiJobsEligible" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400">4 Match</span>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Scholarships</p>
+            <span class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+            </span>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between gap-2">
+            <p id="kpiScholarships" class="text-2xl font-extrabold">13</p>
+            <span id="kpiScholEligible" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400">9 Match</span>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending Queue</p>
+            <span class="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between gap-2">
+            <p id="kpiQueue" class="text-2xl font-extrabold">32</p>
+            <span id="kpiQueueSplit" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400">22S • 10J</span>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Visited Progress</p>
+            <button onclick="clearVisitedHistory()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Reset</button>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between gap-2">
+            <p id="kpiVisited" class="text-2xl font-extrabold">0</p>
+            <span id="kpiVisitedPct" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-400">0% viewed</span>
+          </div>
+          <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
+            <div id="visitedProgressBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabs & Filters Control Strip -->
+      <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        
+        <!-- Segmented Pill Tabs -->
+        <div class="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800 self-start overflow-x-auto max-w-full">
+          <button onclick="switchTab('jobs')" id="tab-jobs"
+            class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs whitespace-nowrap">
+            Academic Jobs <span id="count-jobs" class="ml-1 px-1.5 py-0.2 rounded-full text-[11px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300">20</span>
+          </button>
+          <button onclick="switchTab('scholarships')" id="tab-scholarships"
+            class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white whitespace-nowrap">
+            Scholarships <span id="count-scholarships" class="ml-1 px-1.5 py-0.2 rounded-full text-[11px] bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300">13</span>
+          </button>
+          <button onclick="switchTab('queue')" id="tab-queue"
+            class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white whitespace-nowrap">
+            Pending Queue <span id="count-queue" class="ml-1 px-1.5 py-0.2 rounded-full text-[11px] bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300">32</span>
+          </button>
+        </div>
+
+        <!-- Search & Filters -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 sm:flex-initial">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="searchInput" oninput="renderCurrentView()" placeholder="Search title, uni, country..."
+              class="pl-9 pr-3 py-1.5 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/80 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-56 transition" />
+          </div>
+
+          <select id="eligibilityFilter" onchange="renderCurrentView()"
+            class="px-2.5 py-1.5 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/80 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Statuses</option>
+            <option value="Eligible">Eligible</option>
+            <option value="Potentially Eligible">Potentially Eligible</option>
+            <option value="Insufficient Information">Insufficient Info</option>
+            <option value="Not Eligible">Not Eligible</option>
+          </select>
+
+          <select id="visitedFilter" onchange="renderCurrentView()"
+            class="px-2.5 py-1.5 text-xs sm:text-sm border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/80 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All (Visited & New)</option>
+            <option value="UNVISITED">Unvisited Only</option>
+            <option value="VISITED">Visited Only</option>
+          </select>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ONLY THIS AREA SCROLLS -->
+  <main class="flex-1 overflow-y-auto">
+    <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+      
+      <!-- Subtle Offline / Fallback Notice Banner (only appears if live sync fails) -->
+      <div id="syncNoticeBanner" class="hidden bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+          <svg class="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span id="syncNoticeText">Live Google Sheet unreachable — showing your saved local records seamlessly.</span>
+        </div>
+        <button onclick="document.getElementById('syncNoticeBanner').classList.add('hidden')" class="text-amber-700 dark:text-amber-400 hover:underline font-semibold">Dismiss</button>
+      </div>
+
+      <!-- Legend Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 px-1">
+        <div class="flex items-center gap-4">
+          <span class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 inline-block"></span>
+            New / Unvisited
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-purple-50/90 dark:bg-indigo-950/40 border border-purple-200 dark:border-indigo-800/60 inline-block"></span>
+            Visited Record
+          </span>
+        </div>
+        <span id="showingCountText" class="font-medium">Showing 0 records</span>
+      </div>
+
+      <!-- Cards Grid -->
+      <div id="cardsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-8"></div>
+
+    </div>
+  </main>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs hidden items-center justify-center p-4 z-50" onclick="closeModal(event)">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl space-y-4" onclick="event.stopPropagation()">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span id="modalBadge" class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
+            <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+              ✓ Marked Visited
+            </span>
+          </div>
+          <h2 id="modalTitle" class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-snug"></h2>
+          <p id="modalSubtitle" class="text-sm text-slate-600 dark:text-slate-400 mt-1"></p>
+        </div>
+        <button onclick="hideModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="modalBody" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm"></div>
+      <div id="modalFooter" class="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap justify-between items-center gap-2"></div>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_ID = "1NFSEzc2xHojIeIRWYt2LwT7Lv7ybZCRVKWx41c59lJs";
+    const VISITED_STORAGE_KEY = "ai_academic_tracker_visited_v1";
+    const DATA_CACHE_KEY = "ai_academic_tracker_cached_data_v1";
+    const CACHE_TIME_KEY = "ai_academic_tracker_cached_time_v1";
+
+    // Full built-in snapshot of all 65 records from your spreadsheet so it ALWAYS works offline
+    const BUILTIN_DATA = {"jobs": [{"Job ID": "2a963fcaf6f1808b", "Job Title": "Assistant Professor / Teaching Assistant Professor of Computer Science", "University / Organization": "University of North Carolina at Chapel Hill", "Country": "United States", "City": "Chapel Hill", "Department": "Department of Computer Science", "Position Type": "Full-time (Tenure-Track / Teaching-Track Faculty)", "Required Qualification": "Ph.D. (or foreign equivalent) in computer science, electrical engineering, computer engineering, or a closely related field for tenure-track Assistant Professor; doctorate required for Professor rank; specific minimum degree for Teaching Assistant Professor not explicitly detailed in text snippet", "Experience Required": "Demonstrated potential for securing external research funding, delivering high-quality teaching, and mentoring students; exceptional teaching credentials for teaching-track", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Screening begins December 1, 2026; accepted until filled", "Application URL": "https://unc.peopleadmin.com/postings/326195", "Official Source URL": "https://cs.unc.edu/about/faculty-hiring", "Eligibility Status": "Not Eligible", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-10T20:53:38.329441+00:00", "Last Checked": "2026-11-10T20:53:38.329441+00:00", "Notes": "The candidate holds an MPhil in Computer Science. The Assistant Professor positions explicitly require a Ph.D. or foreign equivalent in computer science or a related discipline."}, {"Job ID": "4265931a10f59db9", "Job Title": "Tenure-Track Position (Assistant Professor of Computer Science)", "University / Organization": "Loyola University Maryland", "Country": "United States", "City": "Not stated", "Department": "Department of Computer Science", "Position Type": "Tenure-Track", "Required Qualification": "Ph.D. in Computer Science, Computer Engineering, or a closely related field", "Experience Required": "Demonstrated potential and interest in excellence in teaching; demonstrated potential for significant scholarly activity (prior teaching experience is preferred)", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "September 7, 2025 (Priority Consideration)", "Application URL": "https://loyola.wd5.myworkdayjobs.com/en-US/External/job/Loyola-University-Maryland-Main-Campus/Assistant-Professor-of-Computer-Science_R-0000000559", "Official Source URL": "https://www.loyola.edu/academics/computer-science/hiring.html", "Eligibility Status": "Not Eligible", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-10T20:58:11.180178+00:00", "Last Checked": "2026-11-10T20:58:11.180178+00:00", "Notes": "Candidate holds an MPhil in Computer Science, whereas this tenure-track faculty position strictly requires a Ph.D. in Computer Science, Computer Engineering, or a closely related field."}, {"Job ID": "0a3af0f299654527", "Job Title": "CIS Lecturer Positions 2027", "University / Organization": "Not stated", "Country": "Not stated", "City": "Not stated", "Department": "Not stated", "Position Type": "Lecturer", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "November 15th, 2026", "Application URL": "https://apply.interfolio.com/194856", "Official Source URL": "https://apply.interfolio.com/194856", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-10T21:03:17.073311+00:00", "Last Checked": "2026-11-10T21:03:17.073311+00:00", "Notes": "The search snippet is from an Interfolio application page and lacks key details regarding the hiring institution, full eligibility requirements, qualification criteria, and location."}, {"Job ID": "f93c469b3a8b1a42", "Job Title": "Computer Sciences & Technology Faculty Positions (Job Board Listing)", "University / Organization": "Various Institutions (Aggregated via The Chronicle of Higher Education)", "Country": "United States and International", "City": "Various", "Department": "Computer Sciences and Technology", "Position Type": "Faculty Positions (Various ranks: Assistant Professor, Associate Professor, Adjunct, Non-Tenured Track, Tenured Track)", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Varies by position (e.g., $100,000-$160,000; $110,000-$130,000; $135,000-$145,000; Competitive)", "Deadline": "Not stated", "Application URL": "https://jobs.chronicle.com/jobs/computer-sciences-and-technology", "Official Source URL": "https://jobs.chronicle.com/jobs/computer-sciences-and-technology", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-10T21:10:03.140438+00:00", "Last Checked": "2026-11-10T21:10:03.140438+00:00", "Notes": "The webpage is a job board aggregator search result listing 1,238 academic and faculty jobs across multiple universities. Individual postings must be checked separately for specific qualification requirements, deadlines, visa sponsorship, and candidate eligibility."}, {"Job ID": "83309b3a65efdc0b", "Job Title": "Computer Science Faculty Jobs (Multiple Positions / Aggregated Search Listing)", "University / Organization": "HigherEdJobs (Various Universities)", "Country": "Multiple (United States, China, etc.)", "City": "Various", "Department": "Computer Science", "Position Type": "Faculty / Academic (Various)", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Varies by position", "Deadline": "Not stated", "Application URL": "https://www.higheredjobs.com/faculty/search.cfm?JobCat=102", "Official Source URL": "https://www.higheredjobs.com/faculty/search.cfm?JobCat=102", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-10T21:15:35.390071+00:00", "Last Checked": "2026-11-10T21:15:35.390071+00:00", "Notes": "The provided page is a search results directory on an aggregate job board (HigherEdJobs) containing 1,117 listings, rather than a single specific job advertisement. Individual listings (such as positions at HKUST Guangzhou, CSU San Marcos, Dartmouth, etc.) must be accessed and reviewed separately to determine eligibility, required qualifications, deadlines, and application requirements."}, {"Job ID": "bd571623190ea1fc", "Job Title": "Multiple Academic Positions in Computer Science (Job Listings Aggregator)", "University / Organization": "AcademicJobsOnline (Various Institutions)", "Country": "Not stated", "City": "Not stated", "Department": "Computer Science / Computing (Various Departments)", "Position Type": "Teaching / Faculty / Postdoctoral (Multiple)", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Not stated", "Application URL": "https://academicjobsonline.org/ajo/cs", "Official Source URL": "https://academicjobsonline.org/ajo/cs", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:20:09.150683+00:00", "Last Checked": "2026-11-11T04:20:09.150683+00:00", "Notes": "The provided webpage is an aggregator directory listing multiple job openings across various universities and institutions worldwide. Individual eligibility criteria, required qualifications, and deadlines are not detailed on this index page, requiring review of specific individual job postings."}, {"Job ID": "a1cff86beede58a4", "Job Title": "CIS Lecturer Positions 2026 Position", "University / Organization": "University of Pennsylvania", "Country": "Not stated", "City": "Not stated", "Department": "Department of Computer and Information Science", "Position Type": "Lecturer", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Not stated", "Application URL": "https://www.higheredjobs.com/faculty/details.cfm?JobCode=179241046", "Official Source URL": "https://www.higheredjobs.com/faculty/details.cfm?JobCode=179241046", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:22:37.496132+00:00", "Last Checked": "2026-11-11T04:22:37.496132+00:00", "Notes": "The listing is from a third-party job board and the snippet provides limited details. Specific qualifications, deadlines, and requirements are not stated in the snippet."}, {"Job ID": "432b7d6fc1246b79", "Job Title": "Faculty Positions (Assistant, Associate, Full Professor / Instructional Faculty)", "University / Organization": "The University of Texas at Austin", "Country": "United States", "City": "Austin", "Department": "Department of Computer Science", "Position Type": "Faculty (Tenured/Tenure-Track and Instructional)", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Not stated", "Application URL": "https://apply.interfolio.com/194129", "Official Source URL": "https://www.cs.utexas.edu/faculty/recruiting", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:23:07.466162+00:00", "Last Checked": "2026-11-11T04:23:07.466162+00:00", "Notes": "The department is recruiting for the 2026-2027 season for Tenured/Tenure-Track and Instructional Faculty (Open Rank) positions. Specific qualification criteria, experience, and deadlines are not detailed on this overview page and require reviewing the respective Interfolio postings."}, {"Job ID": "db4c793b15ef5c50", "Job Title": "Tenure-Track Faculty in Artificial Intelligence (Assistant Professor or Associate Professor)", "University / Organization": "Lehigh University", "Country": "United States", "City": "Bethlehem, PA", "Department": "Department of Computer Science and Engineering (CSE)", "Position Type": "Tenure-track faculty", "Required Qualification": "Ph.D. in Computer Science or a closely related field by the date of employment", "Experience Required": "Demonstrate a strong potential for an outstanding record of research and scholarship, a clear commitment to students and learning, and a commitment to participating in departmental, college, and university service", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "2026-12-01 00:00:00", "Application URL": "https://apply.interfolio.com/193525", "Official Source URL": "https://engineering.lehigh.edu/cse/news/faculty-openings", "Eligibility Status": "Not Eligible", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:24:24.091768+00:00", "Last Checked": "2026-11-11T04:24:24.091768+00:00", "Notes": "The position requires a completed Ph.D. in Computer Science or a closely related field by the date of employment. The candidate holds an MPhil and is therefore not eligible."}, {"Job ID": "473623bfe3d7ce9e", "Job Title": "Multiple Academic Positions Listed (e.g., Cybersecurity Instructor, Project Scientist - Microscopy Data Science and High-Performance Computing)", "University / Organization": "University of California, Los Angeles (UCLA)", "Country": "United States", "City": "Los Angeles", "Department": "Multiple Departments (including Continuing Education / UNEX:ENGINEERING, California NanoSystems Institute)", "Position Type": "Academic / Faculty / Instructor / Project Scientist", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Varies by position (e.g., June 30, 2027 for Cybersecurity Instructor; November 21, 2026 for Project Scientist)", "Application URL": "https://recruit.apo.ucla.edu/apply", "Official Source URL": "https://recruit.apo.ucla.edu/apply", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:26:57.295433+00:00", "Last Checked": "2026-11-11T04:26:57.295433+00:00", "Notes": "The page is an institutional recruitment index listing various open academic and instructor vacancies across UCLA rather than a detailed individual vacancy announcement. Specific job requirements, required degree levels (e.g., Master's vs PhD), and foreign applicant eligibility for individual openings such as Cybersecurity Instructor (JPF11366) require viewing their specific recruitment links."}, {"Job ID": "77081e8c6f60be7f", "Job Title": "Faculty - Algorithms and Computation", "University / Organization": "Ashesi University", "Country": "Ghana", "City": "Accra", "Department": "Not stated", "Position Type": "Assistant / Associate Professor", "Required Qualification": "PhD or master's with teaching experience required", "Experience Required": "Teaching experience required; strong programming skills needed", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Not stated", "Application URL": "https://academicpositions.com/ad/ashesi-university/2026/csis-faculty-algorithms-and-computation/235808", "Official Source URL": "https://academicpositions.com/jobs/position/associate-professor/field/computer-science-mf", "Eligibility Status": "Potentially Eligible", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:27:37.198082+00:00", "Last Checked": "2026-11-11T04:27:37.198082+00:00", "Notes": "Extracted from a third-party job board search results page. The listing accepts a master's degree with teaching experience and aligns well with the candidate's MPhil qualification and teaching areas (Data Structures, Algorithms, Automata and Computation). Detailed terms, rank, application deadlines, and visa requirements must be verified on Ashesi University's official portal."}, {"Job ID": "b21116831dfc589a", "Job Title": "Assistant Professor Computer Science (Aggregated Job Search Results)", "University / Organization": "Multiple Institutions (via LinkedIn)", "Country": "European Economic Area", "City": "Not stated", "Department": "Computer Science / Computing", "Position Type": "Faculty / Academic Teaching and Research", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Not stated", "Application URL": "https://www.linkedin.com/jobs/assistant-professor-computer-science-jobs-european-economic-area", "Official Source URL": "https://www.linkedin.com/jobs/assistant-professor-computer-science-jobs-european-economic-area", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:28:28.887343+00:00", "Last Checked": "2026-11-11T04:28:28.887343+00:00", "Notes": "The webpage is a LinkedIn job search aggregation list showing over 1,000 positions across various universities in the European Economic Area (e.g., Uppsala University, Maynooth University, Lund University, DTU) rather than a single specific job vacancy. Individual requirements, deadlines, and eligibility criteria are not detailed in the snippet. European Assistant Professor roles typically require a completed PhD, which the candidate lacks (holding an MPhil), but specific roles like Lecturer or Assistant positions need individual verification on the respective institutions' official recruitment portals."}, {"Job ID": "807e08c4e8c518bc", "Job Title": "Multiple Positions (including Associate / Assistant Professor / Lecturer in Computer Science)", "University / Organization": "Beijing Normal-Hong Kong Baptist University (BNBU) / Multiple Employers", "Country": "China / Multiple Countries", "City": "Zhuhai / Multiple Cities", "Department": "Computer Science", "Position Type": "Not stated", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Commensurate with qualifications and experience", "Deadline": "Not stated", "Application URL": "https://www.timeshighereducation.com/unijobs/listings/computer-science/lecturers-assistant-professors", "Official Source URL": "https://www.timeshighereducation.com/unijobs/listings/computer-science/lecturers-assistant-professors", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:37:55.315856+00:00", "Last Checked": "2026-11-12T10:37:55.315856+00:00", "Notes": "Eligibility reason: The search result is an aggregator page listing multiple academic roles across various institutions (e.g., BNBU, HKU). Specific mandatory qualifications, eligibility criteria, and deadlines for individual Lecturer or Assistant Professor posts are not detailed in the snippet. | Missing requirements / checks: Detailed job requirements, mandatory degree level (PhD vs. MPhil), deadlines, and application guidelines from official job adverts. | Recommended action: Check the full advertisement | Eligibility classification: Insufficient Information | Separate position assessments: {'position_title': 'Lecturer in Computer Science (BNBU)', 'eligibility_status': 'Insufficient Information', 'eligibility_reason': 'Snippet mentions Lecturer in Computer Science at BNBU, but requirements (PhD vs MS/MPhil) are not detailed.'}; {'position_title': 'Assistant / Associate Professor in Computer Science (BNBU)', 'eligibility_status': 'Insufficient Information', 'eligibility_reason': 'Assistant/Associate Professor roles generally require a PhD, but explicit criteria are not provided in the snippet.'} | Additional notes: Aggregator search results page."}, {"Job ID": "50165cd57cee66ab", "Job Title": "Assistant Professor and Associate Professor in Computer Science specialising in Cybersecurity", "University / Organization": "Uppsala University / Multiple Employers", "Country": "Sweden", "City": "Uppsala", "Department": "Computer Science", "Position Type": "Tenure-track or permanent", "Required Qualification": "PhD usually mandatory for faculty roles supervising PhD students (not explicitly stated in snippet)", "Experience Required": "Independent research and teaching/supervision capability", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "2026-12-04 00:00:00", "Application URL": "https://academicpositions.com/jobs/field/software-engineering", "Official Source URL": "https://academicpositions.com/jobs/field/software-engineering", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:37:55.827768+00:00", "Last Checked": "2026-11-12T10:37:55.827768+00:00", "Notes": "Eligibility reason: The snippet describes an Assistant/Associate Professor post supervising PhD students at Uppsala University, which standardly requires a completed PhD, but the snippet does not provide the explicit minimum degree criteria. | Missing requirements / checks: Explicit qualification requirements (PhD requirement confirmation). | Recommended action: Check the full advertisement | Eligibility classification: Insufficient Information | Separate position assessments: {'position_title': 'Assistant Professor in Computer Science', 'eligibility_status': 'Potentially Eligible', 'eligibility_reason': 'Supervising PhD students typically mandates a completed PhD, which candidate lacks; however, full requirements are not provided in the snippet.'} | Additional notes: Listing page on Academic Positions with various roles."}, {"Job ID": "4cb2065911a10212", "Job Title": "Multiple Teaching Faculty Positions (Assistant Professor BPS-19, Lecturer BPS-18)", "University / Organization": "University of Chakwal / MY University Islamabad / IMSciences Peshawar", "Country": "Pakistan", "City": "Chakwal / Islamabad / Peshawar", "Department": "Computer Science & Information Technology", "Position Type": "Regular / SPS / BPS", "Required Qualification": "Standard HEC Pakistan: First Class MS/MPhil (18 years) for Lecturer (BPS-18); PhD for Assistant Professor (BPS-19)", "Experience Required": "Not stated in snippet", "Age Limit": "Not stated in snippet", "Salary": "BPS-18 / BPS-19 / SPS-12 standard pay scales", "Deadline": "Not stated in snippet", "Application URL": "https://www.pakistanjobsbank.com/Pro/Lecturer", "Official Source URL": "https://www.pakistanjobsbank.com/Pro/Lecturer", "Eligibility Status": "Potentially Eligible", "Age Relaxation": "Not stated in snippet (Punjab general age relaxation often applicable up to 5-7 years, must be verified)", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:37:56.692302+00:00", "Last Checked": "2026-11-12T10:37:56.692302+00:00", "Notes": "Eligibility reason: The listing features Lecturer (BPS-18) in Computer Science & Information Technology at University of Chakwal (Punjab domicile applicable) and other Pakistani universities where MPhil Computer Science is typically eligible under HEC criteria. However, explicit full criteria, age limits, and deadlines must be confirmed from the official ad. | Missing requirements / checks: Official advertisement details regarding age limit, age relaxation, application deadline, and exact submission procedure. | Recommended action: Check the full advertisement | Eligibility classification: Potentially Eligible | Separate position assessments: {'position_title': 'Lecturers (BPS-18) in Computer Science & IT (University of Chakwal)', 'eligibility_status': 'Potentially Eligible', 'eligibility_reason': 'Candidate holds MPhil in Computer Science and Punjab domicile; matches standard HEC requirements for Lecturer BPS-18, but age limit and deadline must be verified.'}; {'position_title': 'Assistant Professors (BPS-19) in Computer Science & IT (University of Chakwal)', 'eligibility_status': 'Not Eligible', 'eligibility_reason': 'In Pakistani public sector universities under HEC rules, Assistant Professor (BPS-19) requires a completed PhD or significant post-MPhil teaching/research requirements not fully specified here; candidate does not have a PhD.'}; {'position_title': 'Lecturer in CS/AI/DS (IMSciences Peshawar)', 'eligibility_status': 'Potentially Eligible', 'eligibility_reason': 'Candidate meets standard educational criteria (MPhil CS), but provincial quota/domicile and age limits need verification.'} | Additional notes: Newspaper classified job aggregation page listing multiple Pakistani faculty openings."}, {"Job ID": "1e6fb7edbf9cfe69", "Job Title": "Multiple Academic / Research Roles (Programme Lead, Postdoctoral Assistant, Associate Lecturer)", "University / Organization": "Multiple Employers (Oxford International Education Group, Lancaster University, University of Oxford, etc.)", "Country": "United Kingdom", "City": "London / Oxford / Lancashire", "Department": "Computing / Engineering Science", "Position Type": "Various", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Various (e.g., Nov 16, 2026; Nov 23, 2026)", "Application URL": "https://uk.linkedin.com/jobs/assistant-professor-of-computer-science-jobs", "Official Source URL": "https://uk.linkedin.com/jobs/assistant-professor-of-computer-science-jobs", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:37:56.875889+00:00", "Last Checked": "2026-11-12T10:37:56.875889+00:00", "Notes": "Eligibility reason: LinkedIn aggregator search result showing multiple distinct roles (Postdoc, Programme Lead, Lecturer in Digital Media, Professor). Individual qualification requirements and visa/work eligibility are not stated in the snippet. | Missing requirements / checks: Full job descriptions, explicit qualification criteria, and visa sponsorship details for specific roles. | Recommended action: Check the full advertisement | Eligibility classification: Insufficient Information | Separate position assessments: {'position_title': 'Postdoctoral Research Assistant roles', 'eligibility_status': 'Not Eligible', 'eligibility_reason': 'Postdoctoral research assistant positions require a completed PhD, which candidate does not have.'}; {'position_title': 'Associate Lecturer Computing / Programme Lead Computing', 'eligibility_status': 'Insufficient Information', 'eligibility_reason': 'Job specifications, degree requirements, and sponsorship terms are not provided in snippet.'} | Additional notes: LinkedIn search results aggregator."}, {"Job ID": "04da9a8af85d0d8e", "Job Title": "Multiple Faculty & Research Positions (Lecturer in AI, Senior Lecturer, etc.)", "University / Organization": "Various UK Universities (listed via jobs.ac.uk)", "Country": "United Kingdom", "City": "Various (Bristol, Twickenham, Keele, Cardiff, Manchester, Lancaster)", "Department": "Computer Science / Artificial Intelligence / Natural Sciences", "Position Type": "Full-time / Part-time / Contract", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "£44,746 to £58,225 (Lecturer in AI, Bristol); £58,225 to £69,488 (Senior Lecturer, Bristol); varies by post", "Deadline": "Various (06 Nov, 25 Oct, 18 Oct, 01 Nov, 31 Jul)", "Application URL": "https://www.jobs.ac.uk/categories/computer-science/1", "Official Source URL": "https://www.jobs.ac.uk/categories/computer-science/1", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:42:44.680723+00:00", "Last Checked": "2026-11-12T10:42:44.680723+00:00", "Notes": "Eligibility reason: The snippet is a job aggregation board listing multiple academic roles in the UK. Minimum degree requirements, international sponsorship, and specific candidate specifications are not detailed in the snippet. | Missing requirements / checks: Detailed job specifications, minimum qualification requirements (UK lectureships typically mandate a PhD), and visa sponsorship details. | Recommended action: Check the full advertisement | Eligibility classification: Insufficient Information | Separate position assessments: {'position': 'Lecturer in Artificial Intelligence (University of Bristol)', 'status': 'Insufficient Information', 'notes': 'UK University lectureships generally require a completed PhD, which the candidate lacks, but specific requirements must be confirmed.'}; {'position': 'Senior Lecturer in Industrial Computer Science (University of Bristol)', 'status': 'Not Eligible', 'notes': 'Senior Lecturer roles in the UK require a completed PhD and significant post-doctoral academic track record.'}; {'position': 'Fully Funded PhD Studentships (Lancaster University)', 'status': 'Insufficient Information', 'notes': 'Candidate is interested in fully funded PhD opportunities; eligibility criteria and international fee coverage need verification.'} | Additional notes: Aggregation page containing multiple separate vacancy listings."}, {"Job ID": "f8a1e0bad6c793e1", "Job Title": "Full-Time Faculty Openings (Lecturer of Data Science, Chair CS, Postdoctoral Researcher)", "University / Organization": "Kennesaw State University (College of Computing and Software Engineering)", "Country": "United States", "City": "Kennesaw", "Department": "School of Data Science and Analytics / Department of Computer Science", "Position Type": "Full-time (Tenure-track and Non-tenure-track)", "Required Qualification": "Not stated", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "Not stated", "Application URL": "https://campus.kennesaw.edu/colleges-departments/ccse/about/jobs.php", "Official Source URL": "https://campus.kennesaw.edu/colleges-departments/ccse/about/jobs.php", "Eligibility Status": "Insufficient Information", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:42:45.025350+00:00", "Last Checked": "2026-11-12T10:42:45.025350+00:00", "Notes": "Eligibility reason: The landing page lists departmental openings including Lecturer of Data Science and Analytics, but the snippet does not provide explicit minimum degree or experience requirements, nor US work authorization terms. | Missing requirements / checks: Complete job description, minimum degree requirement (Master's vs. PhD), and visa sponsorship policy. | Recommended action: Check the full advertisement | Eligibility classification: Insufficient Information | Separate position assessments: {'position': 'Lecturer of Data Science and Analytics', 'status': 'Potentially Eligible', 'notes': \"US university lecturer positions often accept an MS/MPhil with extensive teaching experience, matching the candidate's MPhil in CS and 14+ years of teaching.\"}; {'position': 'Chair of the Department of Computer Science / Open Rank Professor', 'status': 'Not Eligible', 'notes': 'Tenure-track professor and department chair positions strictly require a terminal degree (PhD).'}; {'position': 'Postdoctoral Researcher, Computer Science', 'status': 'Not Eligible', 'notes': 'Postdoctoral appointments require a completed PhD.'} | Additional notes: CCSE faculty recruitment overview page."}, {"Job ID": "3c56405cc98a1799", "Job Title": "Lecturer / Assistant Professor", "University / Organization": "Air University Multan Campus", "Country": "Pakistan", "City": "Multan", "Department": "Department of Computer Science", "Position Type": "Full-time Faculty", "Required Qualification": "Not stated in snippet (Standard HEC criteria: MS/MPhil for Lecturer; PhD for Assistant Professor)", "Experience Required": "Not stated", "Age Limit": "Not stated", "Salary": "Not stated", "Deadline": "2026-08-08 00:00:00", "Application URL": "https://portals.au.edu.pk/jobs", "Official Source URL": "https://www.facebook.com/aumc.edu.pk/posts/%F0%9D%90%85%F0%9D%90%9A%F0%9D%90%9C%F0%9D%90%AE%F0%9D%90%A5%F0%9D%90%AD%F0%9D%90%B2-%F0%9D%90%8F%F0%9D%90%A8%F0%9D%90%AC%F0%9D%90%A2%F0%9D%90%AD%F0%9D%90%A2%F0%9D%90%A8%F0%9D%90%A7%F0%9D%90%AC-%F0%9D%90%8E%F0%9D%90%A9%F0%9D%90%9E%F0%9D%90%A7-%F0%9D%90%9A%F0%9D%90%AD-%F0%9D%90%93%F0%9D%90%A1%F0%9D%90%9E-%F0%9D%90%83%F0%9D%90%9E%F0%9D%90%A9%F0%9D%90%9A%F0%9D%90%AB%F0%9D%90%AD%F0%9D%90%A6%F0%9D%90%9E%F0%9D%90%A7%F0%9D%90%AD-%F0%9D%90%A8%F0%9D%90%9F-%F0%9D%90%82%F0%9D%90%A8%F0%9D%90%A6%F0%9D%90%A9%F0%9D%90%AE%F0%9D%90%AD%F0%9D%90%9E%F0%9D%90%AB-%F0%9D%90%92%F0%9D%90%9C%F0%9D%90%A2%F0%9D%90%9E%F0%9D%90%A7%F0%9D%90%9C%F0%9D%90%9E-%F0%9D%90%80%F0%9D%90%A2%F0%9D%90%AB-%F0%9D%90%94%F0%9D%90%A7%F0%9D%90%A2%F0%9D%90%AF%F0%9D%90%9E%F0%9D%90%AB%F0%9D%90%AC%F0%9D%90%A2%F0%9D%90%AD%F0%9D%90%B2-%F0%9D%90%8C%F0%9D%90%AE%F0%9D%90%A5%F0%9D%90%AD/1488105880100979", "Eligibility Status": "Potentially Eligible", "Age Relaxation": "Not stated", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:42:45.216227+00:00", "Last Checked": "2026-11-12T10:42:45.216227+00:00", "Notes": "Eligibility reason: The candidate holds an MPhil in Computer Science with over 14 years of teaching experience, aligning well with the Lecturer position in Computer Science, Data Science, AI, and Software Engineering. However, the exact qualification, experience, and age criteria are not detailed in the social media post. | Missing requirements / checks: Official job criteria document specifying exact degree requirements, age limits, and selection criteria. | Recommended action: Apply | Eligibility classification: Potentially Eligible | Separate position assessments: {'position': 'Lecturer (Computer Science / Data Science / AI / Software Engineering)', 'status': 'Eligible', 'notes': 'Candidate meets the standard Pakistan HEC requirement (18-year MPhil in CS) and has relevant teaching and research background.'}; {'position': 'Assistant Professor', 'status': 'Not Eligible', 'notes': 'Assistant Professor roles at Pakistani universities generally require a completed PhD under current HEC minimum standards.'} | Additional notes: Official announcement on Air University Multan Campus Facebook page directing to portals.au.edu.pk/jobs."}, {"Job ID": "d7451ad16d8a3db8", "Job Title": "Lecturer — Computer Science (BPS-18)", "University / Organization": "University of Gujrat", "Country": "Pakistan", "City": "Gujrat", "Department": "Department of Computer Science (Hafiz Hayat Campus)", "Position Type": "Regular / Contract (BPS-18)", "Required Qualification": "MPhil / MS in Computer Science (or equivalent 18-year degree)", "Experience Required": "Not stated", "Age Limit": "Not stated in snippet (Standard Punjab BPS-18 limit is typically 21–35 years)", "Salary": "BPS-18 pay scale", "Deadline": "10 November 2026 (Online), 12 November 2026 (Hard-Copy)", "Application URL": "Not stated", "Official Source URL": "https://www.facebook.com/alicommunicationjobsinformation/posts/-university-of-gujrat-lecturer-jobs-2026-great-academic-career-opportunities-for/1529340872553214", "Eligibility Status": "Potentially Eligible", "Age Relaxation": "Not stated in snippet; requires verification against Punjab Government general age relaxation policies.", "Verification Status": "Needs Review", "Date Found": "2026-11-12T10:42:45.459776+00:00", "Last Checked": "2026-11-12T10:42:45.459776+00:00", "Notes": "Eligibility reason: The candidate has an MPhil in Computer Science and Punjab domicile, satisfying the educational and quota requirements for Lecturer (BPS-18) at UOG. However, because the candidate is 38 years old, applicable general age relaxation under Punjab Government / UOG rules must be confirmed. | Missing requirements / checks: Verification of age limit rules and applicability of Punjab Government general age relaxation (typically 5 years for male candidates) for UOG Advertisement 06/2026. | Recommended action: Verify age relaxation | Eligibility classification: Potentially Eligible | Separate position assessments: {'position': 'Lecturer — Computer Science (BPS-18)', 'status': 'Potentially Eligible', 'notes': 'The candidate meets the academic qualification (MPhil CS) and has 14+ years of relevant teaching experience; eligibility depends on whether the 38-year age falls within relaxed limits.'} | Additional notes: Third-party recruitment post referencing University of Gujrat Advertisement 06/2026 with 13 total posts in CS (09 Open Merit)."}], "scholarships": [{"Scholarship ID": "21c7a60afa9d8704", "Scholarship Name": "Best Countries for Fully Funded PhD Programs (2027) [Guide]", "University": "Multiple institutions (e.g., Princeton University, TU Delft, ETH Zurich, KTH, etc.)", "Country": "Multiple countries (United States, United Kingdom, Germany, Canada, Australia, Netherlands, Switzerland, Sweden, South Korea, China)", "Degree Level": "PhD", "Research Area": "Not stated", "Funding Type": "Fully Funded", "Tuition Coverage": "Varies by country and program (e.g., fully covered at Princeton and CSC; home-rate only via UKRI unless gap is covered)", "Monthly Stipend": "Varies by country (e.g., EUR 3,155-4,855 gross in Germany; EUR 3,204-4,051 gross in Netherlands; CNY 3,500 in China; KRW 1,380,000 equivalent in South Korea)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Insufficient Information", "Deadline": "Not stated", "Application URL": "https://www.applykite.com/blog/phd-guide-best-countries-fully-funded", "Official Source URL": "https://www.applykite.com/blog/phd-guide-best-countries-fully-funded", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:30:58.843759+00:00", "Last Checked": "2026-11-11T04:30:58.843759+00:00", "Notes": "The source is an informational blog guide from ApplyKite detailing doctoral funding systems and sample stipend/salary figures across ten countries. It does not represent a specific Computer Science PhD opening or direct application process."}, {"Scholarship ID": "2eebb6abe8cea7af", "Scholarship Name": "Fully Funded Ph.D. Positions in AI, Deep Learning & Data Science – COSMOS Center (Spring & Fall 2026)", "University": "University of Texas at Arlington (UTA)", "Country": "USA", "Degree Level": "PhD", "Research Area": "Deep Learning, Machine Learning, Data Analytics & Data Science, Artificial Intelligence (AI), Intelligent & Autonomous Systems, Healthcare AI, Generative AI, Interpretable Deep Learning", "Funding Type": "Fully Funded", "Tuition Coverage": "Full tuition covered (offers full financial support including tuition, stipend, and benefits)", "Monthly Stipend": "Stipend included (exact amount Not stated)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "Open until positions are filled", "Application URL": "https://researchersjob.com/phd-scholarship-spring-fall-2026", "Official Source URL": "https://researchersjob.com/phd-scholarship-spring-fall-2026", "Verification Status": "Needs Review", "Date Found": "2026-11-11T04:34:13.939483+00:00", "Last Checked": "2026-11-11T04:34:13.939483+00:00", "Notes": "Listed on a third-party academic job portal (researchersjob.com). Research strongly aligns with candidate's background in AI, deep learning, healthcare AI, and generative AI. Applications are instructed to be sent directly by email with CV and transcripts to Dr. Shouyi Wang."}, {"Scholarship ID": "2ef6bf44e66bec5e", "Scholarship Name": "Fully-Funded PhD in AI for International Students", "University": "City St George's, University of London", "Country": "United Kingdom", "Degree Level": "PhD", "Research Area": "Artificial Intelligence (Ethical AI, AI Bias Mitigation, Natural Language Processing)", "Funding Type": "Fully funded", "Tuition Coverage": "Full tuition fees covered", "Monthly Stipend": "£1,750 per month (£21,000 per year tax-free)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "Rolling admissions", "Application URL": "https://www.citystgeorges.ac.uk/about/schools/science-technology/computer-science", "Official Source URL": "https://bheuni.io/blog/fully-funded-phd-in-ai-for-international-students", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:57:10.097932+00:00", "Last Checked": "2026-11-11T09:57:10.097932+00:00", "Notes": "Information is sourced from a third-party educational consultancy blog (BHE Uni). While it outlines 100% tuition coverage and a £21,000/year stipend backed by UK Innovation and BHE Uni, details must be verified directly on the official City St George's, University of London portal."}, {"Scholarship ID": "022ecf22cb007ce6", "Scholarship Name": "PhD Studentships in AI & Human-Centric Systems (MINDxAI Lab)", "University": "University of Louisville", "Country": "USA", "Degree Level": "PhD", "Research Area": "AI/ML, human-in-the-loop systems, autonomous vehicles, healthcare AI, safety-critical decision-making, adaptive automation, human behavior modeling", "Funding Type": "Fully Funded", "Tuition Coverage": "Not stated", "Monthly Stipend": "Not stated", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "Not stated", "Application URL": "https://www.facebook.com/groups/1649389145936164/posts/1919641755577567", "Official Source URL": "https://www.facebook.com/groups/1649389145936164/posts/1919641755577567", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:57:26.410339+00:00", "Last Checked": "2026-11-11T09:57:26.410339+00:00", "Notes": "Source is an informal Facebook post announcing up to 2 fully funded PhD positions at the MINDxAI Lab (J.B. Speed School of Engineering) supported by NSF-funded projects, starting Fall 2026 or Spring 2027. Official application instructions, tuition coverage breakdown, stipend amount, and language requirements are not specified."}, {"Scholarship ID": "09602d56f6d898ba", "Scholarship Name": "10 Funded PhD Scholarships in Artificial Intelligence 2026", "University": "Multiple institutions (including Utrecht University, Inria, NTNU, Uppsala University, TU Delft, Coventry University, University of Oslo, Cranfield University, University of Southampton)", "Country": "Netherlands, France, Norway, Sweden, United Kingdom", "Degree Level": "PhD", "Research Area": "Artificial Intelligence, Sequential Decision-Making, Scientific Machine Learning, Knowledge Graphs, Neuro-Symbolic AI, LLMs for Healthcare, Reinforcement Learning", "Funding Type": "Fully funded (advertised salaried PhD positions)", "Tuition Coverage": "Not stated", "Monthly Stipend": "Varies by institution (e.g., €3,059 to €3,881/month at Utrecht University and TU Delft; €2,300 gross/month at Inria; 550,800 NOK/year at NTNU)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "Multiple deadlines from 19 April 2026 to 31 December 2026 (e.g., 25 Apr 2026, 30 Apr 2026, 14 May 2026, 15 May 2026, 1 Aug 2026)", "Application URL": "https://www.youtube.com/watch?v=NxXfTe7S430", "Official Source URL": "https://www.youtube.com/watch?v=NxXfTe7S430", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:57:46.748442+00:00", "Last Checked": "2026-11-11T09:57:46.748442+00:00", "Notes": "Third-party YouTube compilation sharing various European PhD openings. Individual positions are presented as fully funded employment contracts with salaries specified for several institutions (e.g., Utrecht, Inria, NTNU, TU Delft), but explicit tuition coverage and English language requirements are not described. Candidate's MPhil in Computer Science and background in AI align with the research areas. Official university career portals must be reviewed directly for formal application criteria."}, {"Scholarship ID": "a50093f0566af7ea", "Scholarship Name": "PhD Studentship: Trustworthy Generative AI in Healthcare", "University": "King's College London", "Country": "United Kingdom", "Degree Level": "PhD", "Research Area": "Trustworthy Generative AI in Healthcare / Statistical Machine Learning / Multimodal Large Language Models", "Funding Type": "Fully funded", "Tuition Coverage": "Full fees covered at Home or International rate", "Monthly Stipend": "Stipend paid at the UKRI London rate", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Eligible", "Deadline": "2026-09-30 00:00:00", "Application URL": "https://apply.kcl.ac.uk/", "Official Source URL": "https://www.kcl.ac.uk/dentistry/research/phd-opportunities-folder/cocts-trustworthy-generative-ai-in-healthcare", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:57:54.336100+00:00", "Last Checked": "2026-11-11T09:57:54.336100+00:00", "Notes": "Open to Home and Overseas applicants. The project focuses on multimodal large language models and trustworthy generative AI in healthcare; prior medical/dental domain knowledge is not required, matching the candidate's Computer Science and AI background. Applicants are strongly advised to contact supervisors Dr. Yunpeng Li and Dr. Yali Du before applying."}, {"Scholarship ID": "60503e92b0c0c242", "Scholarship Name": "UKRI AI Centre for Doctoral Training in Designing Responsible Natural Language Processing", "University": "University of Edinburgh", "Country": "United Kingdom", "Degree Level": "PhD", "Research Area": "Responsible Natural Language Processing, Generative AI, Multilingual Language Technologies, Algorithmic Fairness, Ethics and Governance, Human-AI Interaction", "Funding Type": "Fully Funded", "Tuition Coverage": "Full overseas tuition waiver", "Monthly Stipend": "Not stated (Annual UKRI stipend provided; 2026/27 reference rate is £21,805/year)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "30 November 2026 (Stage 1)", "Application URL": "https://lnkd.in/dANccs7F", "Official Source URL": "https://www.linkedin.com/posts/ahmed-basyoni-239444103_2027-studentships-activity-7513769793179594752-6245", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:58:03.852569+00:00", "Last Checked": "2026-11-11T09:58:03.852569+00:00", "Notes": "Information extracted from a LinkedIn post referencing studentships beginning September 2027. International candidates are eligible (up to a 30% UKRI cohort cap). Visa fees, relocation, and Immigration Health Surcharge are not covered."}, {"Scholarship ID": "b3a8abdab8cccbea", "Scholarship Name": "PhD Position in Generative AI in Health Technology Assessment (HTA)", "University": "Utrecht University", "Country": "Netherlands", "Degree Level": "PhD", "Research Area": "Generative AI, Health Technology Assessment (HTA), Pharmacoepidemiology, Health Economics", "Funding Type": "Fully funded", "Tuition Coverage": "Not stated (salaried university employee position)", "Monthly Stipend": "€3,204 to €4,051 gross per month (plus 8% holiday allowance and 8.3% year-end bonus)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "2026-09-30 00:00:00", "Application URL": "https://www.uu.nl/en/organisation/working-at-utrecht-university/jobs/phd-position-in-generative-ai-in-health-technology-assessment-hta", "Official Source URL": "https://researchersjob.com/phd-position-in-generative-ai-in-health", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:58:13.852583+00:00", "Last Checked": "2026-11-11T09:58:13.852583+00:00", "Notes": "Hosted by the Utrecht Institute for Pharmaceutical Sciences (Faculty of Science). Interdisciplinary project focusing on GenAI applications and evaluation across the HTA lifecycle. Requires an MSc degree in Data Science, Pharmaceutical Sciences, Health Economics, or a related discipline. Standard Dutch employment contract (CAO NU Scale P) initially for 18 months, extendable to 4 years. Host portal link is provided via a third-party aggregator."}, {"Scholarship ID": "83b5a3b0b54e0a44", "Scholarship Name": "Computer Science Scholarships and Financial Aid Directory", "University": "Not stated", "Country": "United States", "Degree Level": "Undergraduate / Graduate (Mixed)", "Research Area": "Computer Science / STEM", "Funding Type": "Partial / Not fully funded", "Tuition Coverage": "Not stated (only partial awards listed, e.g., $1,000 to $12,000)", "Monthly Stipend": "Not stated", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Not Eligible", "Deadline": "Not stated", "Application URL": "https://www.computerscience.org/scholarships-overview", "Official Source URL": "https://www.computerscience.org/scholarships-overview", "Verification Status": "Needs Review", "Date Found": "2026-11-11T09:58:36.894517+00:00", "Last Checked": "2026-11-11T09:58:36.894517+00:00", "Notes": "This page is an informational guide and directory summarizing various partial scholarships and undergraduate/graduate awards (such as IEEE, ACM, and Google grants). It does not offer or represent any fully funded PhD scholarship with complete tuition waiver or living stipend as required by the candidate profile."}, {"Scholarship ID": "eec5bc9fe8b79eb4", "Scholarship Name": "Fully Funded PhD Programs in Computer Science (Surrey, Brown, Columbia, Cornell)", "University": "Multiple (University of Surrey, Brown University, Columbia University, Cornell University)", "Country": "United Kingdom / United States", "Degree Level": "PhD", "Research Area": "Computer Science, Artificial Intelligence, Machine Learning, Cybersecurity", "Funding Type": "Fully Funded", "Tuition Coverage": "Full tuition fees covered / full tuition exemption (varies by university)", "Monthly Stipend": "Stipend provided (e.g., Surrey UKRI stipend £16,062 plus £3,000 per annum; Columbia monthly stipend)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Potentially Eligible", "Deadline": "Not stated", "Application URL": "Not stated", "Official Source URL": "https://www.profellow.com/fellowships/fully-funded-phd-programs-in-computer-science", "Verification Status": "Needs Review", "Date Found": "2026-11-11T21:45:22.203274+00:00", "Last Checked": "2026-11-11T21:45:22.203274+00:00", "Notes": "Eligibility reason: The source is an aggregate list of fully funded PhD opportunities in Computer Science and AI matching the candidate's degree and research background. However, specific eligibility and admission requirements for each individual institution must be confirmed. | Missing requirements / checks: Individual university admission deadlines, English language criteria, and formal entry requirements. | Recommended action: Check the full advertisement | Eligibility classification: Potentially Eligible | Additional notes: Aggregator directory listing multiple funded doctoral programs across the UK and USA."}, {"Scholarship ID": "dea143c5dc44b4d0", "Scholarship Name": "Fully Funded PhD Scholarship in Artificial Intelligence and Machine Learning", "University": "University of New England", "Country": "Australia", "Degree Level": "PhD", "Research Area": "Artificial Intelligence, Machine Learning (focus on medical and educational data)", "Funding Type": "Fully Funded", "Tuition Coverage": "Full tuition waiver", "Monthly Stipend": "AUD $36,862 annual tax-free stipend (~AUD $3,071 per month)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Not Eligible", "Deadline": "Expired", "Application URL": "Not stated", "Official Source URL": "https://www.applykite.com/scholarships/fully-funded-phd-in-artificial-intelligence-and-machine-learning-at-university-of-new-england-australia-f1e3743a60", "Verification Status": "Needs Review", "Date Found": "2026-11-11T21:45:22.715948+00:00", "Last Checked": "2026-11-11T21:45:22.715948+00:00", "Notes": "Eligibility reason: The opportunity deadline is explicitly marked as 'Expired' in the source. | Missing requirements / checks: Active recruitment round / valid deadline | Recommended action: Do not apply | Eligibility classification: Not Eligible | Additional notes: Although the research area in AI/ML aligns well with the candidate profile, the posting has expired."}, {"Scholarship ID": "5b2034d82fd25523", "Scholarship Name": "Fully Funded PhD in Trustworthy Generative AI in Healthcare (Ref: 2026YL-TGAi-R2)", "University": "King's College London", "Country": "United Kingdom", "Degree Level": "PhD", "Research Area": "Trustworthy Generative AI in Healthcare, Machine Learning, NLP, Computer Vision", "Funding Type": "Fully Funded", "Tuition Coverage": "Full tuition fees at Home or International rate", "Monthly Stipend": "UKRI London-rate stipend (annual stipend paid monthly)", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Eligible", "Deadline": "2026-09-30 00:00:00", "Application URL": "Not stated", "Official Source URL": "https://www.linkedin.com/posts/gradehood_phd-fullyfundedphd-phdscholarship-activity-7508861249418498048-IxZF", "Verification Status": "Needs Review", "Date Found": "2026-11-11T21:45:23.480710+00:00", "Last Checked": "2026-11-11T21:45:23.480710+00:00", "Notes": "Eligibility reason: The candidate holds an MPhil in Computer Science with active research interests in AI, Generative AI, NLP, and Healthcare AI. The position accepts international applicants, provides full tuition and UKRI London stipend, and requires a relevant degree in CS/AI. | Missing requirements / checks: English language test score (IELTS) and direct portal application link from official university listing. | Recommended action: Apply | Eligibility classification: Eligible | Additional notes: Strong alignment with candidate's profile; requires selecting Dental and Health Sciences Research MPhil/PhD (Full-time) with project reference 2026YL-TGAi-R2."}, {"Scholarship ID": "5b6cdc66bc69dda4", "Scholarship Name": "PhD in Computer Science / Artificial Intelligence", "University": "Johns Hopkins University / University of Massachusetts Amherst", "Country": "United States", "Degree Level": "PhD", "Research Area": "Artificial Intelligence, Healthcare AI, Machine Learning", "Funding Type": "Fully Funded", "Tuition Coverage": "Full tuition and fees coverage indicated", "Monthly Stipend": "Full-year stipend provided", "IELTS Requirement": "Not stated", "Age Limit": "Not stated", "Eligibility Status": "Insufficient Information", "Deadline": "Not stated", "Application URL": "Not stated", "Official Source URL": "https://programs.com/programs/ai-phd-programs", "Verification Status": "Needs Review", "Date Found": "2026-11-11T21:45:23.659244+00:00", "Last Checked": "2026-11-11T21:45:23.659244+00:00", "Notes": "Eligibility reason: The snippet is a broad ranking and overview article discussing various AI doctoral programs rather than a specific scholarship vacancy. Detailed eligibility criteria, test requirements, and application deadlines are not provided. | Missing requirements / checks: Admission requirements, application deadlines, English proficiency criteria, and direct application procedures. | Recommended action: Check the full advertisement | Eligibility classification: Insufficient Information | Additional notes: Informational guide; candidate should visit specific departmental graduate admissions pages for active calls."}], "queue": [{"Queue ID": "9bea9bd390eae682", "Category": "scholarship", "Title": "MCML - Call for Fully Funded PhD Positions 2026", "URL": "https://mcml.ai/opportunities/for-phd-applicants/phd2026", "Content": "Home | Opportunities | For PhD Applicants | Matchmaking 2026\n\n# Call for Fully Funded PhD Positions 2026\n\nAt the end of 2025, the MCML PhD Matchmaking Program was launched for the fourth time. We received over 1,500 applications from international students—a notable increase compared to last year.\n\nWe are excited to offer a new cohort of PhD positions across LMU and TUM as part of the program's ongoing focus on research in ML and AI. [...] Sama Elbaroudy\n\n→ Group Christian Wachinger   \n Artificial Intelligence in Medical Imaging\n\nLink to website \n\nSophia Gaupp\n\n→ Group Benedikt Wiestler   \n AI...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "c9b34e1d65c2bffd", "Category": "scholarship", "Title": "Scholarships for a PhD in USA (90 Awards) | Galvanize", "URL": "https://galvanizetestprep.com/scholarships/usa/phd", "Content": "| Toyota Technological Institute at Chicago (TTIC) PhD Program in Computer Science Toyota Technological Institute at Chicago (TTIC) | Full tuition + stipend ($45,000/year 2024–25) + health insurance; research-focused with no mandatory teaching requirement; 4–5 year programme | December 15 | Full funding | 2026-07-28 confirmed | [...] | Cornell University Fellowship Cornell University – Graduate School | Full tuition + 9-month stipend ($36,684 at Ithaca campus; $60,719 at Cornell Tech for 2026-27) + individual health insurance; awarded to approximately 20% of incoming PhD students | Varies by d...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "327f1297f927a0b2", "Category": "scholarship", "Title": "40 Fully Funded PhD Scholarships for International Students in 2026", "URL": "https://www.lanternpost.org/40-fully-funded-phd-scholarships-for-international-students-in-2026", "Content": "This one is not a vague university-wide promise. It is a live, named, open PhD scholarship opportunity at the University of Western Australia, and it is open to both domestic and international students. The project sits in Information and Computing Sciences and is aimed at candidates with a strong background in computer science, electrical engineering, or a closely related field. The university is unusually specific about the profile it wants. It is looking for applicants with strong coding [...] ISTA runs one of the most competitive fully funded PhD programs in Europe. The ISTA PhD Program is...", "Queued At": "2026-11-12T10:24:44.521610+00:00"}, {"Queue ID": "08e23e7dcfc1085f", "Category": "scholarship", "Title": "Fully Funded Scholarships | Fully funded PhD program in Computer Science starting in Fall 2026 | Facebook", "URL": "https://www.facebook.com/groups/FullyFundedScholarship/posts/1820323095441048", "Content": "Log In\n\nLog In\n\nForgot Account?\n\n\n\nImage 2: 🤖 Embodied & Multimodal AI for agents/robotics, focusing computer vision\n\nImage 3: 🩺 AI for Healthcare (imaging, surgical video, time-series data, EHR/text)\n\nIdeal candidates should have a background in CS/ECE or related fields, strong deep learning skills (PyTorch preferred), robots/embedded systems, and enthusiasm for building a new lab from the ground up.\n\nImage 4: 📄 All details (research directions, expectations, and how to apply):\n\nImage 5: 👉", "Queued At": "2026-11-12T10:24:44.521610+00:00"}, {"Queue ID": "7e21d284628c7402", "Category": "scholarship", "Title": "Top PhD Scholarships USA 2026 | Fully Funded Guide #18334", "URL": "https://www.academicjobs.com/en-us/higher-education-news/top-phd-scholarships-usa-2026-fully-funded-guide-18334", "Content": "IBM PhD Fellowship Awards Program: Nominated by faculty for PhD students in AI, cybersecurity, and quantum technologies. Includes stipend, tuition, and conference travel funding.\n Meta Research PhD Fellowship (formerly Facebook): Supports computer science and engineering PhDs worldwide with $42,000 annual stipend and $5,000 travel grant, focusing on AR/VR and machine learning. [...] structured around substantial funding mechanisms designed to attract top talent. Most STEM fields at leading universities provide full funding through teaching or research assistantships, covering tuition remission...", "Queued At": "2026-11-12T10:24:44.521610+00:00"}, {"Queue ID": "5e5e4e0486f1eb17", "Category": "scholarship", "Title": "Fully Funded PhD & Master's Scholarships 2026", "URL": "https://pforphd.com", "Content": "PforPhD covers PhD scholarships across 50+ countries including:\n\n🇩🇪 Germany (DAAD)  |  🇺🇸 USA (Fulbright)  |  🇬🇧 UK (Chevening, Commonwealth)  |  🇨🇳 China (CSC)  |  🇯🇵 Japan (MEXT)  |  🇰🇷 South Korea (KGSP)  |  🇦🇺 Australia  |  🇨🇦 Canada  |  🇳🇱 Netherlands  |  🇸🇪 Sweden  |  🇭🇺 Hungary (Stipendium Hungaricum)  |  🇹RX Turkey  |  and many more.\n\n  Can students from Pakistan and developing countries apply? ▼ [...] Absolutely. Many scholarships listed on PforPhD specifically target students from developing countries, including Pakistan, India, Bangladesh, Nigeria, Kenya, and others.\n\nPrograms like ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "4f71b4ce7ad37bb1", "Category": "scholarship", "Title": "86+ PhD Scholarships in United States Of America (USA) 2026-27 [Updated]", "URL": "https://www.wemakescholars.com/phd-scholarships-for-international-students-in-united-states", "Content": "PhD, Post Doc\n\nFunding Type:\n\nFull Funding\n\nEligible Courses:\n\nSelected subjects offered at the university\n\nDeadline:\n\n20 Nov, 2026\n\nEligible Nationalities:\n\nOpen to international students\n\nScholarship can be taken at:\n\nHome university and German university participating in the Cotutelle or sandwich model\n\nShortlist\n\nCheck eligibility\n\nCharlotte W. Newcombe Foundation Scholarship programs\n\nExpires in  \n2 days [...] The Rosztoczy Foundation Hungarian Scholarship 2026 is a Full Funding international scholarship offered by the Rosztoczy Foundation for international students. Students eligible for...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "610c63b1dc9145b9", "Category": "scholarship", "Title": "19+ PhD AI & Machine Learning Scholarships for Africans 2026", "URL": "https://scholar.africa/scholarships/artificial-intelligence/phd", "Content": "Quick answer\n\nThere are 19 verified scholarships matching PhD AI & Machine Learning Scholarships for African Students 2026, of which 11 are fully funded. Top listings include Vanier Canada Graduate Scholarships, Schlumberger Foundation Faculty for the Future, AI4D African Scholars Programme (IDRC). All are free to apply and link directly to official provider portals. [...] IDRC Canada · PhD · Postdoctoral · Stipend\n\n31 days\n\n30 NOV 2026 SG\n\nSwiss Government Excellence Scholarships\n\nSwiss Government · Switzerland · PhD · Postdoctoral · Fully funded\n\n32 days\n\n01 DEC 2026 D/\n\nDeepMind Scholarship...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "a31bc58f0e164953", "Category": "scholarship", "Title": "Academic opportunities - AI Discussions - DeepLearning.AI", "URL": "https://community.deeplearning.ai/t/academic-opportunities/884689", "Content": "| Gates Cambridge Scholarship | UK | Oct 2026 | Fully funded PhD/master’s at Cambridge. Strong AI labs. |\n| Mila (Montreal Institute for Learning Algorithms) | Canada | Rolling (apply by Jan–Mar 2026 for fall intake) | Funded MSc/PhD in AI. Leading AI research hub. | [...] | Scholarship / Program | Region | Deadline (Approx.) | Notes |\n ---  --- |\n| Erasmus Mundus Joint Master in AI | Europe | Jan–Feb 2026 | Fully funded, covers tuition + living + travel. Multi‑country program. |\n| Fulbright Program (Brazil → US) | United States | Feb–Mar 2026 | Covers master’s/PhD, tuition, stipend, airfare. ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "906cab147df82af1", "Category": "scholarship", "Title": "200 Fully-Funded PhD Programs in the USA for International Students (2026) | William Kaseu", "URL": "https://williamlebeau.com/blog/full-scholarships-phd-international-students-part-1", "Content": "## Computer Science#\n\n| # | University |\n --- |\n| 1 | Baylor University |\n| 2 | Brown University |\n| 3 | Carnegie Mellon University |\n| 4 | Duke University |\n| 5 | Georgetown University |\n| 6 | Johns Hopkins University |\n| 7 | University of Colorado Boulder |\n| 8 | University of Illinois Urbana-Champaign |\n| 9 | University of Iowa |\n| 10 | University of South Florida | [...] | Field | Number of Programs |\n --- |\n| Computer Science | 10 |\n| Electrical Engineering | 10 |\n| Mechanical Engineering | 10 |\n| Biomedical Engineering | 10 |\n| Chemistry | 10 |\n| Physics | 10 |\n| Biology / Biological Sci...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "51482ea1813cd916", "Category": "scholarship", "Title": "Best Computer Science Scholarships (2026) - ScholarshipsandGrants.us", "URL": "https://scholarshipsandgrants.us/major/general", "Content": "Why it slaps\n\n  + Full tuition + stipend (UG $27k, Grad $37k) up to 3 years\n  + Federal/state/tribal cyber job placement after graduation\n Amount: Tuition/fees + $27k–$37k stipends + $6k pro allowance\n Deadline: By participating university (varies)\n Apply/info:  — SFS\n\n#### DoD SMART Scholarship-for-Service (CS/CE/AI/EE — UG→PhD)\n\n Why it slaps [...] #### Google PhD Fellowship (Grad/PhD — CS research)\n\n Why it slaps\n\n  + Tuition + stipend (region-specific) + Google Research mentor\n  + Strong signal in ML/Systems/HCI/etc.\n Amount/Deadline: Varies by region/year; see official page\n Apply/info:  ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "60eacc64c412dc87", "Category": "scholarship", "Title": "Graduate Fellowship Opportunities – Department of Computer Science", "URL": "https://computerscience.uchicago.edu/academics/phd/graduate-fellowship-opportunities", "Content": "| Bloomberg Data Science Ph.D Fellowship Program | 4/28/23 | Eligible: PhD students enrolled in a full-time degree granting program who are graduating before 2026, working in broadly-construed data science. Benefits:100% paid tuition, $36,000 USD for living expenses, $5,000 USD for research expenses, 14-week paid internship with Bloomberg. | [...] | National GEM Consortium – Predoctoral Fellowships for Underrepresented Groups in Engineering and Science | 2nd Friday of November | Eligible: Must be (1) underrepresented minority, (2) U.S. citizen or U.S. permanent resident at time of application,...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "f3ce7c266c998f55", "Category": "scholarship", "Title": "Computer Science Scholarships - Scholarships.com", "URL": "https://www.scholarships.com/financial-aid/college-scholarships/scholarships-by-major/computer-science-scholarships", "Content": "The SBB Research Group STEM Scholarship encourages and empowers students to create significant value and countless new opportunities for society through their pursuit of higher learning, especially through interdisciplinary combinations of Science, Technology, Engineering, and Mathematics (STEM). Scholarship Details Twelve (12) scholarship awards of $2,500 each per year Awarded to the\n\n 5\n ## MMUF Dissertation Grants\n\n Amount$30,000\n DeadlineDecember 4, 2026 [...] The National GEM Consortium awards fellowships with coverage of up to full-tuition to master's and doctoral students in engineering...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "feb6068a4bc90d00", "Category": "scholarship", "Title": "Funding Opportunities | Computer Science | University of Colorado Boulder", "URL": "https://www.colorado.edu/cs/admissions/graduate-admissions/funding-opportunities", "Content": "### Stipend and Funding\n\nAll admitted PhD students receive a TA or an RA offer, which covers tuition, fees, 91% of health insurance premium, which includes dental insurance, and a monthly stipend during academic semesters (summer is not included in the offer).\n\nFor AY 2025-2026 the stipend amount is $16,222.92 per semester in Fall and Spring semesters.\n\n### Tuition Waivers", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "a610f9131d72df49", "Category": "scholarship", "Title": "PhD Scholarships & Fellowships - Department of Computer Science", "URL": "https://www.cs.jhu.edu/academic-programs/graduate-studies/phd-program/phd-scholarships-fellowships", "Content": "### \n\nThis competitive scholarship is awarded to a prospective CS PhD student who has shown exceptional promise. The primary purpose of this scholarship is to provide an incoming student who possesses a broad set of interests the flexibility to work with multiple faculty members and lab groups in their first year. The scholarship includes full first-year tuition, fees, and stipend support for 12 months. [...] The Vivien Thomas Scholars Initiative (VTSI) is an endowed fellowship program at Johns Hopkins for PhD students in STEM fields. It provides full tuition, stipend, and benefits while also ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "95b1e8dc7b019274", "Category": "scholarship", "Title": "http://www.phdstipends.com/csv", "URL": "http://www.phdstipends.com/csv", "Content": "Rochester Institute of Technology (RIT),Computer and Information Science,\"$21,800\",1.02,2025-2026,1st,,\"$23,000\",$0,\"$1,200\",For 2026-27\nVirginia Tech,Computer Science,\"$20,878\",0.99,2025-2026,3rd,,\"$22,950\",,\"$2,072\",\nPurdue University - West Lafayette,Mechanical Engineering,\"$33,250\",1.57,2025-2026,3rd,\"$35,650\",,,\"$2,400\",\nUniversity of Cincinnati (UC),Immunology ,\"$42,000\",2.18,2025-2026,3rd,\"$42,000\",,,$0, [...] Utah State University (USU),Computer Science,\"$18,300\",0.88,2025-2026,1st,,\"$19,200\",,$900,Please change the stipend detail of Computer Science in USU. It is not what it shows in ...", "Queued At": "2026-11-12T10:24:44.521610+00:00"}, {"Queue ID": "4abc31b6bf8befe7", "Category": "job", "Title": "Lecturer In Computer Science Jobs in Pakistan (67 Open Roles) | LinkedIn", "URL": "https://pk.linkedin.com/jobs/lecturer-in-computer-science-jobs", "Content": "Lahore, Punjab, Pakistan\n Odoo ERP Trainer \n\n  \n\n  ### Odoo ERP Trainer\n\n  #### Pearl Solutions (Pvt.) Ltd.\n\n  Lahore, Punjab, Pakistan\n Cybersecurity Instructor (SOC/BlueTeam) \n\n  \n\n  ### Cybersecurity Instructor (SOC/BlueTeam)\n\n  #### Edversity\n\n  Islamabad, Islāmābād, Pakistan\n AWS Cloud Instructor \n\n  \n\n  ### AWS Cloud Instructor\n\n  #### MetaPi\n\n  Islāmābād, Pakistan \n\n  Be an early applicant\n AI Automations Instructor (Part Time) \n\n  \n\n  ### AI Automations Instructor (Part Time) [...] ### Teaching Staff - American Lycetuff\n\n  #### Taraki\n\n  Lahore, Punjab, Pakistan\n [[Full-time] - Pengaja...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "181f3c8e9a7b52aa", "Category": "job", "Title": "Lecturer Computer Science Algorithmics (m/f/d) - Lecturer Computer Science Algorithmics (m/f/d) - Academic Positions", "URL": "https://academicpositions.com/ad/iu-international-university-of-applied-sciences/2026/lecturer-computer-science-algorithmics-mfd/242498?locale=de", "Content": "Employer\n\nIU International University of Applied Sciences\n\nLocation\n\nBerlin, Germany\n\nPublished\n\n2026-01-17\n\nApplication deadline\n\nUnspecified\n\nJob type\n\nLecturer / Senior Lecturer\n\nField [...] Contribute to our academic world at our campus in Berlin as a freelance lecturer in MyStudium with 48 teaching units starting on 01.04.2026.\n\n## Your tasks [...] We back up our words with actions: We take our “Culture of Everyone“ seriously and want to make clear that no matter your origin, religion, gender, age, or sexual orientation, we will welcome and accept you. Our doors stand also open to you if ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "c8cfdc076400583e", "Category": "job", "Title": "Computer Engineering Faculty Jobs - HigherEdJobs", "URL": "https://www.higheredjobs.com/faculty/search.cfm?JobCat=116", "Content": "Computer Science  \n Posted 4 days ago  \n\nRegular or Visiting Faculty (2027) | Computer Science and Engineering  \n American University of Sharjah   \n Sharjah, United Arab Emirates \n\nComputer Engineering  \n Posted 4 days ago  \n\nLecturer of Computer Networking & Infrastructure Engineering/Cybersecurity  \n University of Wisconsin - Stout   \n Menomonie, WI \n\nComputer Science  \n Posted 4 days ago [...] - [x]  South Carolina (3) \n\n- [x]  South Dakota (2) \n\n- [x]  Tennessee (7) \n\n- [x]  Texas (36) \n\n- [x]  Utah (4) \n\n- [x]  Virginia (15) \n\n- [x]  Washington (4) \n\n- [x]  West Virginia (2) \n\n- [x]  Wisc...", "Queued At": "2026-11-12T10:24:44.521536+00:00"}, {"Queue ID": "2fe2687a94c0ceb4", "Category": "job", "Title": "Now Hiring: 600 Tenure Track Assistant Professor Computer Science Jobs | Indeed", "URL": "https://www.indeed.com/q-tenure-track-assistant-professor-computer-science-jobs.html", "Content": "Applicants should submit a CV, research statement, teaching statement, three confidential letters of recommendation, and three of your most significant publications, software, or research products. All application materials should be uploaded through Interfolio. For full consideration, we recommend that applicants apply by December 15, 2026, though we will continue to review applications past that date as needed. [...] + View all Hamilton College jobs in Clinton, NY - Clinton jobs - Assistant Professor jobs in Clinton, NY\n  + Salary Search: Assistant Professor of Computer Science salaries in C...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "a3ef7d769065fa67", "Category": "job", "Title": "Faculty Positions jobs in Europe | November 2026 | The Chronicle of Higher Education Jobs", "URL": "https://jobs.chronicle.com/jobs/faculty-positions/europe", "Content": "View details Assistant Professor of Business Administration, Illinois Tech Mumbai, India\n ### Assistant Professor of Computer Science, Illinois Tech Mumbai, India\n\n  Emeritus logo\n  + Mumbai, India\n  + Competitive\n  + Emeritus\n\n  Illinois Institute of Technology invites applications for Assistant Professor faculty positions at its Mumbai campus.\n\n  View details Assistant Professor of Computer Science, Illinois Tech Mumbai, India\n ### Full-time Faculty Position in Psychology [...] + London (Central), London (Greater) (GB)\n  + Salary is no less than £68,087 per annum and the salary scale can be ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "841d450eda76ca50", "Category": "scholarship", "Title": "fully", "URL": "https://www.thefreedictionary.com/fully", "Content": "full of [...] in full [...] to the full", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "c66b2203891f922f", "Category": "scholarship", "Title": "FULLY Definition & Meaning | Dictionary.com", "URL": "https://www.dictionary.com/browse/fully", "Content": "> But we should also agree on the problem: Too many American households are entering retirement squeezed by costs they cannot fully control.\n>\n> From MarketWatch ● Nov. 9, 2026\n>\n> Logo link to MarketWatch\n\n> A WOW spokesperson said in an email to the LA Local that the signs are fully permitted and that the company plans to appeal the decision.\n>\n> From Los Angeles Times ● Nov. 9, 2026\n>\n> Logo link to Los Angeles Times [...] Examples are provided to illustrate real-world usage of words in context. Any opinions expressed do not reflect the views of Dictionary.com.\n\n### See Examples For:\n\n> “We...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "449096b2a6a37ea0", "Category": "scholarship", "Title": "fully - Wiktionary, the free dictionary", "URL": "https://en.m.wiktionary.org/wiki/fully", "Content": "to a full extent\n\n|  | [...] 2012 November 7, Matt Bai, “In Obama's Second Term, Familiar Challenges”, in The New York Times‎( New York, N.Y.: The New York Times Company, →ISSN, →OCLC, archived from the original on 2 February 2023: [...] 2015 March 22, Michael Schulman, “Lena Dunham and the 'Man Who Drew Eloise'”, in The New York Times‎( New York, N.Y.: The New York Times Company, →ISSN, →OCLC, archived from the original on 26 December 2022:", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "201c8733b9029078", "Category": "scholarship", "Title": "Thesaurus results for FULLY", "URL": "https://www.merriam-webster.com/thesaurus/fully", "Content": "Recent Examples of _fully_ The problem is that many business owners assume their personal auto policy _fully_ covers these activities.— Kaitlyn Gomez, _Miami Herald_, 22 Oct. 2026 , Lee and Brennan, especially, stand out as originals, their performances drawn from life, or some private corner of their imagination. — Los Angeles Times, _Los Angeles Times_, 19 Oct. 2026 \n#### Word of the Day\n\n#### asunder\n\n\n\nSee Definitions and Examples »\n\nGet Word of the Day daily email! [...] Antonyms & Near Antonyms\n\n   partially \n   partly \n   halfway \n   half \n   just \n   barely \n   slightly \n   incompletel...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "f47ab75b639c78d5", "Category": "scholarship", "Title": "FULLY Definition & Meaning - Merriam-Webster", "URL": "https://www.merriam-webster.com/dictionary/fully", "Content": "What really sets Black Doves apart, though, are its lovable characters and its beguiling mix of laughs and tears, which flirt with existential despair without ever fully tipping into it.\n\n—\nAngie Han,\nHollywoodReporter,\n5 Nov. 2026 \nSee All Example Sentences for fully\n\n## Word History\n\nFirst Known Use\n\nbefore the 12th century, in the meaning defined at sense 1\n\nTime Traveler\n\nThe first known use of fully was\nbefore the 12th century\n\nSee more words from the same century [...] Plus, people hosting small gatherings and those who don’t want to tackle a whole turkey can select smaller turkey breast...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "362720787ae9a6d9", "Category": "scholarship", "Title": "Funding Your Ph.D. Education | UC Berkeley School of Information", "URL": "https://www.ischool.berkeley.edu/programs/phd/funding", "Content": "In the first year, I School Ph.D. students receive fellowship support to cover all tuition and fees, including Non-Resident Supplemental Tuition and the Student Health Insurance Fee, and a stipend for living expenses. For the academic year 2026–2027, the first-year I School Ph.D. student 12-month stipend is $41,000. [...] | 2026–2027 Ph.D. tuition & fees (per semester) | California Residents | Non-Residents |\n --- \n| Tuition | $6,861.00 | $6,861.00 |\n| Student Services Fee | $672.00 | $672.00 |\n| Berkeley Campus Fee | $904.75 | $904.75 |\n| Transit Fee | $236.00 | $236.00 |\n| UC Graduate and Pr...", "Queued At": "2026-11-12T10:24:44.521610+00:00"}, {"Queue ID": "646ada780f291a03", "Category": "job", "Title": "Job Bulletin", "URL": "https://www.governmentjobs.com/careers/colorado/jobs/newprint/5229444", "Content": "The Department of Computer Science invites applications for either a professor of the practice (PoP) faculty positionor a tenure-track faculty positionin the broadly defined area of Machine Learning and AI, with an anticipated start in Fall 2026. We seek a creative and ambitious researcher whose work complements and expands our strengths in computer science, applied math,  and applied interdisciplinary engineering. Candidates whose research bridges multiple subfields, connects with industry", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "58fa2c2e72fff2dc", "Category": "job", "Title": "Faculty of Computer Science - Hajvery University", "URL": "https://hup.edu.pk/careers-options/faculty-of-computer-science", "Content": "Skip to content\n\nHajvery University White Logo\n\nApply\n\nFaculty of Computer ScienceHajvery University Newscaster2026-07-24T15:42:09+00:00\n\n### Faculty of Computer Science\n\nJob Description\n\n|  |  |\n --- |\n| Reference: | Faculty of Computer Science |\n| Job Type: | Full Time, Permanent |\n| Job Status: |\n| Job Advertised: | 26-July-2026 |\n| Location: | Lahore & Sheikhupura |\n| University Website: |  |\n|\n\nJob Eligibility\n\nThe prospective candidate should: [...] A progressive Government Chartered Autonomous University invites applications from highly Competent Male & Female professionals for Teaching...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "1e3ca78411041b6f", "Category": "job", "Title": "NYU Computer Science Department", "URL": "https://cs.nyu.edu/dynamic/jobs/openings", "Content": "Applicants should submit a CV, research statement, teaching statement, three confidential letters of recommendation, and three of your most significant publications, software, or research products. All application materials should be uploaded through Interfolio.\n\nFor full consideration, we recommend that applicants apply by December 15, 2026, though we will continue to review applications past that date as needed.\n\n## NYU Abu Dhabi Computer Science Professor, Tenured / Tenure-Track - Open Rank", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "e5541bed5c1d150d", "Category": "job", "Title": "Prospective Faculty | School of Computing and Information", "URL": "https://www.sci.pitt.edu/recruiting", "Content": "Application reviews will begin late January 2026, with a deadline of March 1, 2026; applications will be accepted until positions are filled. The anticipated start date is August 15, 2026.\n\nApply\n\nWelcome to Pitt!\n\n## Join the SCI Community\n\nWhether you're already familiar with Pitt or you’re considering a move to Pittsburgh, we hope this guide will help you to get the most out of our hometown.\n\nLearn About Pittsburgh\n\nWorking at Pitt [...] The anticipated start date is August 15, 2026.\n\nApply\n\n## Appointment Stream Positions\n\n### Open Rank Teaching Professor in Human-Computer Interaction & Di...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}, {"Queue ID": "7f64a82df6228986", "Category": "job", "Title": "AKADEUS", "URL": "https://akadeus.com/announcements", "Content": "Read more\n\nIÉSEG School of Management\n\nLocation: France / Paris\n\nEmployment Type: Permanent Full-time\n\nPosted:02/11/2026 \n\n## Tenure-Track Assistant, Associate, or Full Professorship in Information Systems\n\nSwitzerland / Basel\n\nInformation Systems\n\nRead more\n\nUniversity of Basel, Faculty of Business and Economics\n\nLocation: Switzerland / Basel\n\nEmployment Type: Permanent Full-time\n\nPosted:02/11/2026 \n\n## Assistant / Associate Professor in Marketing Analytics\n\nChile / Santiago [...] NOVA IMS\n\nLocation: Portugal / Lisbon\n\nEmployment Type: Permanent Full-time\n\nPosted:29/10/2026 \n\n## Tenure-Track ...", "Queued At": "2026-11-12T10:42:45.716438+00:00"}]};
+
+    let currentTab = 'jobs';
+    let filteredItemsCache = [];
+    let visitedSet = new Set(JSON.parse(localStorage.getItem(VISITED_STORAGE_KEY) || "[]"));
+
+    // Load previously synced records from localStorage, or fall back to all 65 built-in records
+    function loadInitialData() {
+      try {
+        const saved = localStorage.getItem(DATA_CACHE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.jobs) && parsed.jobs.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn("Cache read warning:", e);
+      }
+      return BUILTIN_DATA;
+    }
+
+    let appData = loadInitialData();
+
+    function saveDataToCache(data) {
+      try {
+        localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_TIME_KEY, new Date().toLocaleString());
+      } catch (e) {
+        console.warn("Cache write warning:", e);
+      }
+    }
+
+    function getRecordUid(tab, item, fallbackIdx) {
+      const id = item['Job ID'] || item['Scholarship ID'] || item['Queue ID'] || item['Application URL'] || item['Title'] || fallbackIdx;
+      return `${tab}:${id}`;
+    }
+
+    function markAsVisited(uid, shouldRerender = true) {
+      if (!visitedSet.has(uid)) {
+        visitedSet.add(uid);
+        localStorage.setItem(VISITED_STORAGE_KEY, JSON.stringify([...visitedSet]));
+        updateKPIs();
+        if (shouldRerender) renderCurrentView();
+      }
+    }
+
+    function toggleVisitedState(uid, event) {
+      if (event) event.stopPropagation();
+      if (visitedSet.has(uid)) {
+        visitedSet.delete(uid);
+      } else {
+        visitedSet.add(uid);
+      }
+      localStorage.setItem(VISITED_STORAGE_KEY, JSON.stringify([...visitedSet]));
+      updateKPIs();
+      renderCurrentView();
+    }
+
+    function clearVisitedHistory() {
+      if (visitedSet.size === 0) return;
+      if (confirm("Reset all visited record highlights?")) {
+        visitedSet.clear();
+        localStorage.removeItem(VISITED_STORAGE_KEY);
+        updateKPIs();
+        renderCurrentView();
+      }
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }
+
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+
+    // Import local .xlsx / .csv file anytime
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const nextData = {
+            jobs: workbook.Sheets['Academic Jobs'] ? XLSX.utils.sheet_to_json(workbook.Sheets['Academic Jobs'], { defval: '' }) : appData.jobs,
+            scholarships: workbook.Sheets['Scholarships'] ? XLSX.utils.sheet_to_json(workbook.Sheets['Scholarships'], { defval: '' }) : appData.scholarships,
+           
+           
+           
+           
+           queue: workbook.Sheets['Pending Queue'] ? XLSX.utils.sheet_to_json(workbook.Sheets['Pending Queue'], { defval: '' }) : appData.queue
+          };
+          appData = nextData;
+          saveDataToCache(appData);
+          const total = appData.jobs.length + appData.scholarships.length + appData.queue.length;
+          document.getElementById('syncStatus').textContent = `Imported "${file.name}" • ${total} records saved`;
+          document.getElementById('statusDot').className = 'w-2 h-2 rounded-full bg-emerald-500';
+          document.getElementById('syncNoticeBanner').classList.add('hidden');
+          updateKPIs();
+          renderCurrentView();
+        } catch (err) {
+          alert("Could not parse Excel file: " + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function parseGvizTable(table) {
+      if (!table || !table.cols || !table.rows) return [];
+      const headers = table.cols.map((col, idx) => (col.label || col.id || `Col_${idx}`).trim());
+      return table.rows.map(row => {
+        const obj = {};
+        (row.c || []).forEach((cell, i) => {
+          const key = headers[i];
+          if (!key) return;
+          obj[key] = cell ? (cell.f !== undefined && cell.f !== null ? cell.f : (cell.v !== null ? String(cell.v) : '')) : '';
+        });
+        return obj;
+      }).filter(rowObj => Object.values(rowObj).some(val => val !== ''));
+    }
+
+    function fetchSheetViaJsonp(sheetName) {
+      return new Promise((resolve, reject) => {
+        const callbackName = 'gvizCb_' + sheetName.replace(/\W/g, '_') + '_' + Date.now();
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error(`Timeout connecting to "${sheetName}"`));
+        }, 7000);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        window[callbackName] = function(response) {
+          cleanup();
+          if (response && response.status === 'ok') {
+            resolve(parseGvizTable(response.table));
+          } else {
+            reject(new Error(`Sheet "${sheetName}" is private or unavailable`));
+          }
+        };
+
+        const encodedSheet = encodeURIComponent(sheetName);
+        script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodedSheet}&headers=1&tqx=out:json;responseHandler:${callbackName}`;
+        script.onerror = () => {
+          cleanup();
+          reject(new Error(`Network offline or blocked for "${sheetName}"`));
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    async function loadAllSheets(isManualClick = false) {
+      const btn = document.getElementById('syncBtn');
+      const statusEl = document.getElementById('syncStatus');
+      const dotEl = document.getElementById('statusDot');
+      const banner = document.getElementById('syncNoticeBanner');
+
+      btn.disabled = true;
+      btn.classList.add('opacity-70');
+      statusEl.textContent = 'Checking Google Sheets for updates...';
+      dotEl.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+
+      try {
+        const [jobs, scholarships, queue] = await Promise.all([
+          fetchSheetViaJsonp('Academic Jobs'),
+          fetchSheetViaJsonp('Scholarships'),
+          fetchSheetViaJsonp('Pending Queue')
+        ]);
+
+        appData = { jobs, scholarships, queue };
+        saveDataToCache(appData);
+        const total = jobs.length + scholarships.length + queue.length;
+
+        statusEl.textContent = `Live • ${total} records synced (${new Date().toLocaleTimeString()})`;
+        dotEl.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        banner.classList.add('hidden');
+        updateKPIs();
+        renderCurrentView();
+      } catch (err) {
+        // NEVER wipe out the screen on error—keep displaying the cached / built-in records!
+        const total = appData.jobs.length + appData.scholarships.length + appData.queue.length;
+        const lastSaved = localStorage.getItem(CACHE_TIME_KEY) || 'Built-in Snapshot';
+        statusEl.textContent = `Offline Mode • ${total} saved records loaded (${lastSaved})`;
+        dotEl.className = 'w-2 h-2 rounded-full bg-amber-500';
+
+        if (isManualClick) {
+          document.getElementById('syncNoticeText').textContent =
+            `Could not reach Google Sheets (${err.message}). Showing your ${total} saved records — or use "Import .XLSX" to load a local file.`;
+          banner.classList.remove('hidden');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70');
+      }
+    }
+
+    function getStatusBadge(status) {
+      const s = (status || '').toLowerCase();
+      if (s === 'eligible') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800';
+      if (s.includes('potentially')) return 'bg-blue-100 text-blue-800 dark:bg-blue-950/90 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800';
+      if (s.includes('not eligible')) return 'bg-rose-100 text-rose-800 dark:bg-rose-950/90 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800';
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-950/90 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800';
+    }
+
+    function updateKPIs() {
+      document.getElementById('kpiJobs').textContent = appData.jobs.length;
+      document.getElementById('count-jobs').textContent = appData.jobs.length;
+      const potJobs = appData.jobs.filter(j => {
+        const s = (j['Eligibility Status'] || '').toLowerCase();
+        return s.includes('eligible') && !s.includes('not');
+      }).length;
+      document.getElementById('kpiJobsEligible').textContent = `${potJobs} Match`;
+
+      document.getElementById('kpiScholarships').textContent = appData.scholarships.length;
+      document.getElementById('count-scholarships').textContent = appData.scholarships.length;
+      const potSchol = appData.scholarships.filter(s => {
+        const st = (s['Eligibility Status'] || '').toLowerCase();
+        return st.includes('eligible') && !st.includes('not');
+      }).length;
+      document.getElementById('kpiScholEligible').textContent = `${potSchol} Match`;
+
+      document.getElementById('kpiQueue').textContent = appData.queue.length;
+      document.getElementById('count-queue').textContent = appData.queue.length;
+      const qSchol = appData.queue.filter(q => (q['Category'] || '').toLowerCase() === 'scholarship').length;
+      const qJobs = appData.queue.length - qSchol;
+      document.getElementById('kpiQueueSplit').textContent = `${qSchol}S • ${qJobs}J`;
+
+      const totalRecords = appData.jobs.length + appData.scholarships.length + appData.queue.length;
+      const visitedCount = visitedSet.size;
+      const pct = totalRecords > 0 ? Math.min(100, Math.round((visitedCount / totalRecords) * 100)) : 0;
+
+      document.getElementById('kpiVisited').textContent = visitedCount;
+      document.getElementById('kpiVisitedPct').textContent = `${pct}% viewed`;
+      document.getElementById('visitedProgressBar').style.width = `${pct}%`;
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      ['jobs', 'scholarships', 'queue'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs whitespace-nowrap';
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white whitespace-nowrap';
+        }
+      });
+      document.getElementById('eligibilityFilter').style.display = tab === 'queue' ? 'none' : 'block';
+      document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+      renderCurrentView();
+    }
+
+    function renderCurrentView() {
+      const container = document.getElementById('cardsContainer');
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const statusFilter = document.getElementById('eligibilityFilter').value;
+      const visitedFilter = document.getElementById('visitedFilter').value;
+      container.innerHTML = '';
+
+      const items = (appData[currentTab] || []).filter((item, rawIdx) => {
+        const uid = getRecordUid(currentTab, item, rawIdx);
+        const isVisited = visitedSet.has(uid);
+
+        const textBlob = JSON.stringify(item).toLowerCase();
+        const matchesQuery = !query || textBlob.includes(query);
+        const matchesStatus = currentTab === 'queue' || statusFilter === 'ALL' || (item['Eligibility Status'] === statusFilter);
+        const matchesVisited = visitedFilter === 'ALL'
+          || (visitedFilter === 'VISITED' && isVisited)
+          || (visitedFilter === 'UNVISITED' && !isVisited);
+
+        return matchesQuery && matchesStatus && matchesVisited;
+      });
+
+      filteredItemsCache = items;
+      document.getElementById('showingCountText').textContent = `Showing ${items.length} record${items.length === 1 ? '' : 's'}`;
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-14 text-slate-500 dark:text-slate-400 text-sm">No matching records found for your active filters.</div>`;
+        return;
+      }
+
+      items.forEach((item, index) => {
+        const uid = getRecordUid(currentTab, item, index);
+        const isVisited = visitedSet.has(uid);
+
+        const cardStyle = isVisited
+          ? 'bg-purple-50/75 dark:bg-indigo-950/35 border-purple-200/90 dark:border-indigo-800/70 opacity-90'
+          : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700';
+
+        const titleColor = isVisited
+          ? 'text-purple-950 dark:text-indigo-200'
+          : 'text-slate-900 dark:text-white';
+
+        const visitedBadgeHtml = isVisited
+          ? `<button onclick="toggleVisitedState('${uid}', event)" title="Click to mark as unvisited" class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-indigo-900/80 text-purple-700 dark:text-indigo-200 border border-purple-200 dark:border-indigo-700 hover:bg-purple-200 transition">✓ Visited</button>`
+          : `<button onclick="toggleVisitedState('${uid}', event)" title="Mark as visited" class="text-[11px] font-medium px-2 py-0.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Mark read</button>`;
+
+        const card = document.createElement('div');
+        card.className = `border rounded-2xl p-4 sm:p-5 transition-all duration-200 flex flex-col justify-between gap-3.5 ${cardStyle}`;
+
+        if (currentTab === 'jobs') {
+          const badgeClass = getStatusBadge(item['Eligibility Status']);
+          const appUrl = item['Application URL'] && String(item['Application URL']).startsWith('http') ? item['Application URL'] : '';
+          card.innerHTML = `
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeClass}">${item['Eligibility Status'] || 'Unknown'}</span>
+                  ${visitedBadgeHtml}
+                </div>
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">${item['Country'] || ''}</span>
+              </div>
+              <h3 onclick="openModal(${index})" class="cursor-pointer font-bold text-base leading-snug hover:text-indigo-600 dark:hover:text-indigo-400 transition ${titleColor}">
+                ${item['Job Title'] || 'Untitled Position'}
+              </h3>
+              <p class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                ${item['University / Organization'] || 'Institution Not Stated'} ${item['Position Type'] ? `• ${item['Position Type']}` : ''}
+              </p>
+              <p class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">${item['Notes'] || ''}</p>
+            </div>
+            <div class="pt-3 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-500 dark:text-slate-400"><strong>Deadline:</strong> ${item['Deadline'] || 'Not stated'}</span>
+              <div class="flex items-center gap-3">
+                <button onclick="openModal(${index})" class="font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition">Details</button>
+                ${appUrl ? `<a href="${appUrl}" target="_blank" onclick="markAsVisited('${uid}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition">Apply &rarr;</a>` : ''}
+              </div>
+            </div>`;
+        } else if (currentTab === 'scholarships') {
+          const badgeClass = getStatusBadge(item['Eligibility Status']);
+          const appUrl = item['Application URL'] && String(item['Application URL']).startsWith('http') ? item['Application URL'] : '';
+          card.innerHTML = `
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeClass}">${item['Eligibility Status'] || 'Unknown'}</span>
+                  ${visitedBadgeHtml}
+                </div>
+                <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">${item['Funding Type'] || 'Funded'}</span>
+              </div>
+              <h3 onclick="openModal(${index})" class="cursor-pointer font-bold text-base leading-snug hover:text-indigo-600 dark:hover:text-indigo-400 transition ${titleColor}">
+                ${item['Scholarship Name'] || 'Untitled Scholarship'}
+              </h3>
+              <p class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                ${item['University'] || ''} ${item['Country'] ? `(${item['Country']})` : ''}
+              </p>
+              <p class="text-xs text-slate-700 dark:text-slate-300"><strong>Stipend:</strong> ${item['Monthly Stipend'] || 'Not stated'}</p>
+              <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">${item['Notes'] || ''}</p>
+            </div>
+            <div class="pt-3 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-500 dark:text-slate-400"><strong>Deadline:</strong> ${item['Deadline'] || 'Not stated'}</span>
+              <div class="flex items-center gap-3">
+                <button onclick="openModal(${index})" class="font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition">Details</button>
+                ${appUrl ? `<a href="${appUrl}" target="_blank" onclick="markAsVisited('${uid}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition">Apply &rarr;</a>` : ''}
+              </div>
+            </div>`;
+        } else {
+          const isSchol = (item['Category'] || '').toLowerCase() === 'scholarship';
+          const openUrl = item['URL'] && String(item['URL']).startsWith('http') ? item['URL'] : '';
+          card.innerHTML = `
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold uppercase px-2.5 py-0.5 rounded-full ${isSchol ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'}">${item['Category'] || 'Queued'}</span>
+                  ${visitedBadgeHtml}
+                </div>
+                <span class="text-xs text-slate-400">${String(item['Queued At'] || '').split('T')[0]}</span>
+              </div>
+              <h3 onclick="openModal(${index})" class="cursor-pointer font-bold text-sm leading-snug hover:text-indigo-600 dark:hover:text-indigo-400 transition ${titleColor}">
+                ${item['Title'] || 'Queued Item'}
+              </h3>
+              <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">${item['Content'] || ''}</p>
+            </div>
+            <div class="pt-3 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400 font-mono">ID: ${item['Queue ID'] || ''}</span>
+              <div class="flex items-center gap-3">
+                <button onclick="openModal(${index})" class="font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition">Full Text</button>
+                ${openUrl ? `<a href="${openUrl}" target="_blank" onclick="markAsVisited('${uid}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition">Open &rarr;</a>` : ''}
+              </div>
+            </div>`;
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function openModal(idx) {
+      const item = filteredItemsCache[idx];
+      if (!item) return;
+
+      const uid = getRecordUid(currentTab, item, idx);
+      markAsVisited(uid, true);
+
+      const modal = document.getElementById('detailModal');
+      const badge = document.getElementById('modalBadge');
+      badge.className = `inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${getStatusBadge(item['Eligibility Status'] || item['Category'])}`;
+      badge.textContent = item['Eligibility Status'] || item['Category'] || 'Record Details';
+
+      document.getElementById('modalTitle').textContent = item['Job Title'] || item['Scholarship Name'] || item['Title'] || 'Details';
+      document.getElementById('modalSubtitle').textContent = [item['University / Organization'] || item['University'], item['Country']].filter(Boolean).join(' • ');
+
+      const body = document.getElementById('modalBody');
+      body.innerHTML = Object.entries(item)
+        .filter(([k, v]) => v && !['Application URL', 'Official Source URL', 'URL'].includes(k))
+        .map(([k, v]) => {
+          const isWide = String(v).length > 80;
+          return `<div class="${isWide ? 'sm:col-span-2' : ''} bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800 p-3 rounded-xl">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">${k}</span>
+            <span class="text-slate-800 dark:text-slate-200 whitespace-pre-line text-xs sm:text-sm leading-relaxed">${v}</span>
+          </div>`;
+        })
+        .join('');
+
+      const footer = document.getElementById('modalFooter');
+      footer.innerHTML = `<button onclick="toggleVisitedState('${uid}'); hideModal();" class="text-xs font-medium text-slate-500 hover:text-slate-800 dark:hover:text-white">Mark as Unvisited</button><div class="flex gap-2">`;
+      if (item['Official Source URL'] && String(item['Official Source URL']).startsWith('http')) {
+        footer.innerHTML += `<a href="${item['Official Source URL']}" target="_blank" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">Official Source</a>`;
+      }
+      const primaryUrl = item['Application URL'] || item['URL'];
+      if (primaryUrl && String(primaryUrl).startsWith('http')) {
+        footer.innerHTML += `<a href="${primaryUrl}" target="_blank" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition shadow-sm">Open Application &rarr;</a>`;
+      }
+      footer.innerHTML += `</div>`;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function hideModal() {
+      const modal = document.getElementById('detailModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function closeModal(e) {
+      if (e.target.id === 'detailModal') hideModal();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // 1. Render saved/cached data IMMEDIATELY with zero delay
+      updateKPIs();
+      renderCurrentView();
+
+      // 2. Quietly try syncing with Google Sheets in the background without erasing screen on error
+      loadAllSheets(false);
+
+      // 3. Auto-refresh in background every 60 seconds
+      setInterval(() => {
+        if (document.getElementById('autoRefreshToggle').checked) {
+          loadAllSheets(false);
+        }
+      }, 60000);
+    });
+  </script>
+</body>
+</html>
